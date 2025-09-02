@@ -1,0 +1,30 @@
+[project]
+name = "raptor-service"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "aiohttp>=3.10.0",
+    "alembic>=1.14.0",
+    "asyncpg>=0.29.0",
+    "faiss-cpu>=1.12.0",
+    "fastapi>=0.116.1",
+    "google-generativeai>=0.8.5",
+    "numpy==1.26.4",
+    "openai>=1.99.9",
+    "pgvector>=0.3.8",
+    "psycopg[binary]>=3.2.3",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.6.1",
+    "python-dotenv>=1.1.1",
+    "python-multipart>=0.0.20",
+    "requests>=2.32.4",
+    "rich>=13.9.4",
+    "scikit-learn>=1.7.1",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "tiktoken>=0.11.0",
+    "umap-learn>=0.5.9.post2",
+    "uvicorn>=0.35.0",
+    "voyageai>=0.3.4",
+]

@@ -81,23 +81,20 @@ def get_session_factory(
                 # Disable SSL as last resort
                 connect_args = {}
 
-    # Add psycopg-compatible connection parameters
+    # Add psycopg-compatible connection parameters for concurrent operations
     connect_args.update({
         "application_name": "raptor_service",
-        # Note: psycopg uses direct parameter names
+        "prepare_threshold": None,  # Disable prepared statements to avoid conflicts in parallel uploads
     })
-    
-    # Connection ready for Supabase
 
-    # Create async engine
+    # Create async engine with NullPool for async compatibility
     try:
         engine = create_async_engine(
             database_url,
             pool_pre_ping=pool_pre_ping,
-            poolclass=NullPool,
-            echo=get_database_settings().echo_sql,
+            poolclass=NullPool,    # NullPool is asyncio-compatible
+            echo=False,  # Disable SQL echo to avoid issues
             connect_args=connect_args
-            # Note: pool_timeout and pool_recycle not supported with NullPool
         )
         
         session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 from enum import Enum as PyEnum
 
 from sqlalchemy import TIMESTAMP, String, Integer, Text, ForeignKey
@@ -9,6 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .document import DocumentORM
+    from .assistant import AssistantORM
+    from .message import MessageORM
 
 
 class KnowledgeBaseStatus(str, PyEnum):
@@ -67,6 +72,11 @@ class KnowledgeBaseORM(Base):
         cascade="all, delete-orphan",
         lazy="select"
     )
+    assistants: Mapped[List["AssistantORM"]] = relationship(
+        back_populates="knowledge_base",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
 
 class ChatSessionORM(Base):
@@ -81,6 +91,14 @@ class ChatSessionORM(Base):
         String, 
         ForeignKey("knowledge_bases.kb_id", ondelete="CASCADE"),
         nullable=False, 
+        index=True
+    )
+    
+    # Link to Assistant (optional - can chat directly with KB or through Assistant)
+    assistant_id: Mapped[Optional[str]] = mapped_column(
+        String,
+        ForeignKey("assistants.assistant_id", ondelete="CASCADE"),
+        nullable=True,
         index=True
     )
     
@@ -107,6 +125,13 @@ class ChatSessionORM(Base):
     
     # Relationships
     knowledge_base: Mapped["KnowledgeBaseORM"] = relationship(back_populates="chat_sessions")
+    assistant: Mapped[Optional["AssistantORM"]] = relationship(back_populates="chat_sessions")
+    messages: Mapped[List["MessageORM"]] = relationship(
+        back_populates="chat_session",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="MessageORM.created_at"
+    )
 
 
 

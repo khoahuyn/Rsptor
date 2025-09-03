@@ -115,11 +115,22 @@ class BaseRepository(Generic[ModelType]):
             self.session.add_all(objects)
             await self.session.flush()
             
-            # Refresh all objects to get generated IDs
+            # Refresh all objects to get generated IDs (with concurrency handling)
+            refreshed_objects = []
             for obj in objects:
-                await self.session.refresh(obj)
+                try:
+                    await self.session.refresh(obj)
+                    refreshed_objects.append(obj)
+                except Exception as refresh_error:
+                    # Handle prepared statement conflicts in concurrent uploads
+                    if "DuplicatePreparedStatement" in str(refresh_error) or "already exists" in str(refresh_error):
+                        # Object was created successfully, just use it as-is
+                        refreshed_objects.append(obj)
+                    else:
+                        # Re-raise other refresh errors
+                        raise refresh_error
             
-            return objects
+            return refreshed_objects
         except IntegrityError as e:
             await self.session.rollback()
             raise ValueError(f"Bulk creation failed: {str(e)}")

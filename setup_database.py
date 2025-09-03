@@ -79,7 +79,8 @@ async def verify_tables():
     """Verify that all required tables exist"""
     print("\n🔍 Verifying database tables...")
     required_tables = [
-        "knowledge_bases", "chat_sessions", 
+        "knowledge_bases", "assistants",
+        "chat_sessions", "messages",
         "documents", "chunks", 
         # Tree tables removed - using RAGFlow approach
         "embeddings"

@@ -209,6 +209,75 @@ async def get_kb_chat_sessions(kb_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to get KB chat sessions: {str(e)}")
 
 
+@router.get("/{kb_id}/documents", response_model=dict)
+async def get_kb_documents(
+    kb_id: str,
+    tenant_id: str = Query(..., description="Tenant/User ID"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page")
+):
+    """Get documents for a specific Knowledge Base (for frontend compatibility)"""
+    try:
+        async with get_repositories() as repos:
+            # Calculate offset
+            offset = (page - 1) * page_size
+            
+            # Get documents
+            documents = await repos.document_repo.get_documents_by_tenant_kb(
+                tenant_id=tenant_id,
+                kb_id=kb_id,
+                limit=page_size,
+                offset=offset
+            )
+            
+            # Transform to frontend format
+            documents_data = []
+            for doc in documents:
+                # Get real chunk count from database
+                chunks = await repos.chunk_repo.get_chunks_by_document(doc.doc_id, order_by_index=False)
+                real_chunk_count = len(chunks)
+                
+                # Get original processing stats
+                processing_stats = doc.processing_stats or {}
+                original_chunk_count = processing_stats.get("chunk_count", 0)
+                
+                documents_data.append({
+                    "doc_id": doc.doc_id,
+                    "source": doc.filename,  # Map filename to source
+                    "tags": [],  # No tags in current model
+                    "extra_meta": {
+                        **processing_stats,
+                        "original_chunk_count": original_chunk_count,  
+                        "total_chunk_count": real_chunk_count,         
+                        "raptor_chunk_count": real_chunk_count - original_chunk_count  # RAPTOR summary chunks
+                    },
+                    "chunk_count": real_chunk_count,  
+                    "checksum": doc.checksum or "",
+                    "created_at": doc.created_at.isoformat()
+                })
+            
+            # Get total count (simplified - in real implementation should be optimized)
+            all_docs = await repos.document_repo.get_documents_by_tenant_kb(
+                tenant_id=tenant_id,
+                kb_id=kb_id,
+                limit=1000000  # Large number to get all
+            )
+            total_count = len(all_docs)
+            total_pages = (total_count + page_size - 1) // page_size
+            
+            return {
+                "documents": documents_data,
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total_count,
+                    "pages": total_pages
+                }
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get KB documents: {str(e)}")
+
+
 
 
 

@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, update
+from sqlalchemy import func, update, select
 from .base import BaseRepository
 from models.database.knowledge_base import KnowledgeBaseORM, ChatSessionORM, KnowledgeBaseStatus
 from utils.kb_settings import get_default_kb_settings
@@ -171,16 +171,37 @@ class ChatSessionRepository(BaseRepository[ChatSessionORM]):
         """Get all chat sessions for a specific knowledge base"""
         return await self.get_many(kb_id=kb_id)
     
-    async def increment_message_count(self, session_id: str) -> Optional[ChatSessionORM]:
+    async def increment_message_count(self, session_id: str, count: int = 1) -> Optional[ChatSessionORM]:
         """Increment message count and update last active"""
         try:
             stmt = update(ChatSessionORM).where(
                 ChatSessionORM.session_id == session_id
             ).values(
-                message_count=ChatSessionORM.message_count + 1,
+                message_count=ChatSessionORM.message_count + count,
                 last_active=func.now()
             )
             await self.session.execute(stmt)
             return await self.get_by_id(session_id)
         except Exception as e:
             raise ValueError(f"Failed to increment message count: {str(e)}")
+    
+    async def sync_message_count(self, session_id: str) -> Optional[ChatSessionORM]:
+        """Sync message count with actual messages in database"""
+        try:
+            # Count actual messages in database
+            from models.database.message import MessageORM
+            stmt = select(func.count(MessageORM.message_id)).where(MessageORM.session_id == session_id)
+            result = await self.session.execute(stmt)
+            actual_count = result.scalar() or 0
+            
+            # Update session with actual count
+            stmt = update(ChatSessionORM).where(
+                ChatSessionORM.session_id == session_id
+            ).values(
+                message_count=actual_count,
+                last_active=func.now()
+            )
+            await self.session.execute(stmt)
+            return await self.get_by_id(session_id)
+        except Exception as e:
+            raise ValueError(f"Failed to sync message count: {str(e)}")

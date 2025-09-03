@@ -1,0 +1,231 @@
+@layer theme, base, utilities, radix;
+
+/* 1) Radix Themes trước */
+@import "@radix-ui/themes/styles.css" layer(radix);
+
+/* 2) Tailwind v4 tách lớp để kiểm soát thứ tự */
+@import "tailwindcss/theme.css"     layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* 3) HeroUI plugin + nguồn quét */
+@plugin "./hero.ts";
+
+@source "./index.html";
+@source "./src/**/*.{ts,tsx,jsx,js}";
+@source "../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
+
+/* 4) Dark variant */
+@custom-variant dark (&:is(.dark, .dark *));
+
+/* 5) CSS Custom Properties for themes */
+:root {
+  /* Light theme colors */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --muted: 0 0% 96.1%;
+  --muted-foreground: 0 0% 45.1%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.9%;
+  --border: 0 0% 89.8%;
+  --input: 0 0% 89.8%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Dark theme colors */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 84% 4.9%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 217.2 91.2% 59.8%;
+}
+
+/* 6) Global dark mode styles */
+.dark {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* 7) Custom font families */
+.font-secondary {
+  font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.font-secondary-heading {
+  font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #111827;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dark .font-secondary-heading {
+  color: #f9fafb;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.1);
+}
+
+.username-emphasis {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* Custom button overrides for pagination */
+.pagination-btn {
+  width: 40px !important;
+  min-width: 40px !important;
+  padding: 0 !important;
+}
+
+/* Force Tailwind width utilities to work with HeroUI */
+.force-w-10 {
+  width: 2.5rem !important;
+  min-width: 2.5rem !important;
+}
+
+/* Enhanced dark mode support for components */
+.dark .bg-white {
+  background-color: hsl(var(--card)) !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.dark .text-gray-900 {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .text-gray-600 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .border-gray-200 {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Header-specific dark mode support */
+.dark .bg-white\/80 {
+  background-color: hsl(var(--card) / 0.8) !important;
+}
+
+.dark .bg-gray-900\/80 {
+  background-color: hsl(222.2 84% 4.9% / 0.8) !important;
+}
+
+.dark .border-gray-700 {
+  border-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+.dark .bg-gray-600 {
+  background-color: hsl(220 14.3% 25.9%) !important;
+}
+
+/* Enhanced dark mode support for navigation */
+.dark .bg-gray-50\/80 {
+  background-color: hsl(217.2 32.6% 17.5% / 0.8) !important;
+}
+
+.dark .bg-gray-800\/80 {
+  background-color: hsl(217.2 32.6% 17.5% / 0.8) !important;
+}
+
+.dark .border-gray-600 {
+  border-color: hsl(220 14.3% 25.9%) !important;
+}
+
+.dark .bg-gray-700 {
+  background-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+.dark .text-gray-300 {
+  color: hsl(215 20.2% 65.1%) !important;
+}
+
+.dark .hover\:text-gray-100:hover {
+  color: hsl(210 40% 98%) !important;
+}
+
+.dark .hover\:bg-gray-700:hover {
+  background-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+/* Enhanced dark mode support for sidebar components */
+.dark .bg-gray-900 {
+  background-color: hsl(222.2 84% 4.9%) !important;
+}
+
+.dark .border-gray-700 {
+  border-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+.dark .text-gray-200 {
+  color: hsl(210 40% 98%) !important;
+}
+
+.dark .text-gray-400 {
+  color: hsl(215 20.2% 65.1%) !important;
+}
+
+.dark .bg-blue-900\/30 {
+  background-color: hsl(221.2 83.2% 53.3% / 0.3) !important;
+}
+
+.dark .text-blue-400 {
+  color: hsl(221.2 91.2% 59.8%) !important;
+}
+
+.dark .hover\:bg-gray-800:hover {
+  background-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+.dark .hover\:text-gray-100:hover {
+  color: hsl(210 40% 98%) !important;
+}
+
+/* Enhanced backdrop blur for navigation */
+.backdrop-blur-sm {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.dark .backdrop-blur-sm {
+  backdrop-filter: blur(8px) saturate(1.8);
+  -webkit-backdrop-filter: blur(8px) saturate(1.8);
+}

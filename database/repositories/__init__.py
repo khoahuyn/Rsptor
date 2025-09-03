@@ -3,6 +3,8 @@ from .document_repository import DocumentRepository, ChunkRepository
 
 from .embedding_repository import EmbeddingRepository
 from .knowledge_base_repository import KnowledgeBaseRepository, ChatSessionRepository
+from .assistant_repository import AssistantRepository
+from .message_repository import MessageRepository
 
 __all__ = [
     "BaseRepository",
@@ -10,5 +12,7 @@ __all__ = [
     "ChunkRepository",
     "EmbeddingRepository", 
     "KnowledgeBaseRepository",
-    "ChatSessionRepository"
+    "ChatSessionRepository",
+    "AssistantRepository",
+    "MessageRepository"
 ]

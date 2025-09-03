@@ -22,11 +22,20 @@ async def process_document_ragflow(
 ):
 
     try:
-        logger.info(f"🚀 RAGFlow processing: {file.filename}")
+        logger.info(f"🚀 RAGFlow processing START: {file.filename} (tenant: {tenant_id}, kb: {kb_id})")
         
         # Validation
         if not file.filename:
+            logger.error(f"❌ Filename validation failed for upload")
             raise HTTPException(status_code=400, detail="Filename is required")
+        
+        # File extension validation - only allow .md and .markdown
+        filename_lower = file.filename.lower()
+        if not (filename_lower.endswith('.md') or filename_lower.endswith('.markdown')):
+            raise HTTPException(
+                status_code=400, 
+                detail="Only .md and .markdown files are supported"
+            )
         
         # Read file content
         file_content = await file.read()
@@ -45,11 +54,11 @@ async def process_document_ragflow(
         # Optional RAPTOR stage (separate for performance)  
         # Note: If result is returned, processing was successful (otherwise exception would be raised)
         if enable_raptor:
-            logger.info(f"🌳 Starting RAPTOR tree building for {result.doc_id}")
+            logger.info(f"🌳 Starting RAPTOR tree building for {file.filename} → {result.doc_id}")
             
             try:
                 # Create progress tracking context (non-blocking, server-side only)
-                with raptor_progress_context(f"Building RAPTOR Tree ({result.doc_id[:8]}...)", show_console=True) as progress:
+                with raptor_progress_context(f"Building RAPTOR Tree for {file.filename} ({result.doc_id[:8]}...)", show_console=True) as progress:
                     progress.update(completed=10, description="🌳 Initializing RAPTOR builder...")
                     
                     raptor_builder = RaptorBuilder()
@@ -97,7 +106,7 @@ async def process_document_ragflow(
                 logger.warning(f"⚠️ RAPTOR tree building failed (document processing still successful): {raptor_error}")
                 # Note: Document processing succeeded, RAPTOR is optional enhancement
         
-        logger.info(f"🎉 RAGFlow processing complete: {result.doc_id}")
+        logger.info(f"🎉 RAGFlow processing complete: {file.filename} → {result.doc_id}")
         return result  # Return original result if RAPTOR failed or not enabled
         
     except HTTPException:

@@ -1,0 +1,1 @@
+export { KnowledgePageTemplate } from './KnowledgePageTemplate'

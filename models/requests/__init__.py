@@ -4,12 +4,26 @@ from .knowledge_base import (
     CreateChatSessionRequest, 
     ChatSessionResponse
 )
+from .assistant import (
+    CreateAssistantRequest,
+    UpdateAssistantRequest,
+    AssistantResponse,
+    AssistantListResponse,
+    AssistantStatsResponse,
+    ApiResponse
+)
 
 __all__ = [
     "CreateKBRequest",
     "KBResponse", 
     "CreateChatSessionRequest",
-    "ChatSessionResponse"
+    "ChatSessionResponse",
+    "CreateAssistantRequest",
+    "UpdateAssistantRequest", 
+    "AssistantResponse",
+    "AssistantListResponse",
+    "AssistantStatsResponse",
+    "ApiResponse"
 ]
 
 

@@ -31,9 +31,11 @@ async def clear_data_only():
             print("🔄 Clearing table data...")
             clear_tables = [
                 "DELETE FROM embeddings;",
-                "DELETE FROM chunks;",
+                "DELETE FROM chunks;", 
+                "DELETE FROM messages;",          # Clear messages before chat_sessions
                 "DELETE FROM documents;",
                 "DELETE FROM chat_sessions;",
+                "DELETE FROM assistants;",        # Clear assistants before knowledge_bases
                 "DELETE FROM knowledge_bases;"
             ]
             
@@ -73,8 +75,10 @@ async def reset_database_completely():
             drop_tables = [
                 "DROP TABLE IF EXISTS embeddings CASCADE;",
                 "DROP TABLE IF EXISTS chunks CASCADE;",
+                "DROP TABLE IF EXISTS messages CASCADE;",
                 "DROP TABLE IF EXISTS documents CASCADE;",
                 "DROP TABLE IF EXISTS chat_sessions CASCADE;",
+                "DROP TABLE IF EXISTS assistants CASCADE;",
                 "DROP TABLE IF EXISTS knowledge_bases CASCADE;",
                 "DROP TABLE IF EXISTS alembic_version CASCADE;"
             ]
@@ -86,7 +90,9 @@ async def reset_database_completely():
             print("🔄 Dropping ENUM types...")
             drop_enums = [
                 "DROP TYPE IF EXISTS embedding_owner_type CASCADE;",
-                "DROP TYPE IF EXISTS kb_status CASCADE;"
+                "DROP TYPE IF EXISTS kb_status CASCADE;",
+                "DROP TYPE IF EXISTS messagerole CASCADE;",
+                "DROP TYPE IF EXISTS assistantstatus CASCADE;"
             ]
             
             for drop_sql in drop_enums:

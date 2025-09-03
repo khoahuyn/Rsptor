@@ -1,0 +1,1 @@
+export { KnowledgeContent } from './KnowledgeContent'

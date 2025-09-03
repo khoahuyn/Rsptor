@@ -1,0 +1,1 @@
+export { KnowledgeCard } from './KnowledgeCard'

@@ -2,6 +2,7 @@ import logging
 import warnings
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 # Load environment variables
 try:
@@ -13,6 +14,7 @@ except ImportError:
 from api.knowledge_base import router as kb_router
 from api.ragflow_raptor import router as ragflow_raptor_router
 from api.chat_completion import router as chat_router
+from api.assistant import router as assistant_router
 
 warnings.filterwarnings("ignore", module="umap")
 warnings.filterwarnings("ignore", message=".*n_jobs.*overridden.*random_state.*")
@@ -21,9 +23,20 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("root").setLevel(logging.WARNING)
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],  # Frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
+
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.include_router(kb_router)
 app.include_router(ragflow_raptor_router)
 app.include_router(chat_router)
+app.include_router(assistant_router)
 

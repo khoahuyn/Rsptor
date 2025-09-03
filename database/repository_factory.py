@@ -13,7 +13,7 @@ from .connection import get_cached_session_factory
 from .repositories import (
     DocumentRepository, ChunkRepository, 
     EmbeddingRepository, 
-    KnowledgeBaseRepository, ChatSessionRepository
+    KnowledgeBaseRepository, ChatSessionRepository, AssistantRepository, MessageRepository
 )
 
 
@@ -28,6 +28,8 @@ class RepositoryFactory:
         self._embedding_repo: Optional[EmbeddingRepository] = None
         self._kb_repo: Optional[KnowledgeBaseRepository] = None
         self._chat_repo: Optional[ChatSessionRepository] = None
+        self._assistant_repo: Optional[AssistantRepository] = None
+        self._message_repo: Optional[MessageRepository] = None
     
     @property
     def document_repo(self) -> DocumentRepository:
@@ -59,6 +61,18 @@ class RepositoryFactory:
         if self._chat_repo is None:
             self._chat_repo = ChatSessionRepository(self.session)
         return self._chat_repo
+    
+    @property
+    def assistant_repo(self) -> AssistantRepository:
+        if self._assistant_repo is None:
+            self._assistant_repo = AssistantRepository(self.session)
+        return self._assistant_repo
+    
+    @property
+    def message_repo(self) -> MessageRepository:
+        if self._message_repo is None:
+            self._message_repo = MessageRepository(self.session)
+        return self._message_repo
     
     async def commit(self):
         """Commit all changes in current session"""

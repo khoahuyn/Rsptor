@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test localStorage Knowledge Bases</title>
+</head>
+<body>
+    <h1>localStorage Knowledge Base Test</h1>
+    <button onclick="createTestKB()">Create Test Knowledge Base</button>
+    <button onclick="listKBs()">List Knowledge Bases</button>
+    <button onclick="clearAll()">Clear All</button>
+    <div id="output"></div>
+
+    <script>
+        // Using crypto.randomUUID() for modern browsers (ES2022)
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+            }
+            // Fallback for older browsers
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        function createTestKB() {
+            const kb = {
+                id: generateUUID(),
+                name: 'Test Knowledge Base',
+                description: 'This is a test knowledge base created from HTML',
+                documentCount: 0,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            const existing = JSON.parse(localStorage.getItem('raptor_knowledge_bases') || '[]');
+            existing.push(kb);
+            localStorage.setItem('raptor_knowledge_bases', JSON.stringify(existing));
+            
+            document.getElementById('output').innerHTML = `<p>Created KB: ${kb.name} (ID: ${kb.id})</p>`;
+            console.log('Created knowledge base:', kb);
+        }
+
+        function listKBs() {
+            const kbs = JSON.parse(localStorage.getItem('raptor_knowledge_bases') || '[]');
+            const output = document.getElementById('output');
+            output.innerHTML = `<h3>Knowledge Bases (${kbs.length}):</h3>`;
+            kbs.forEach(kb => {
+                output.innerHTML += `<p><strong>${kb.name}</strong> (${kb.id})<br>Description: ${kb.description}<br>Documents: ${kb.documentCount}</p>`;
+            });
+        }
+
+        function clearAll() {
+            localStorage.removeItem('raptor_knowledge_bases');
+            document.getElementById('output').innerHTML = '<p>Cleared all knowledge bases</p>';
+        }
+
+        // List existing KBs on load
+        window.onload = function() {
+            listKBs();
+        };
+    </script>
+</body>
+</html>

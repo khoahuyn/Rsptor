@@ -3,6 +3,7 @@ from .database import (
     Base, DocumentORM, ChunkORM, KnowledgeBaseORM, 
     ChatSessionORM, KnowledgeBaseStatus, EmbeddingORM, EmbeddingOwnerType
 )
+from .database.assistant import AssistantORM
 
 # Document processing models  
 from .document import (
@@ -11,7 +12,9 @@ from .document import (
 
 # Request/Response models
 from .requests import (
-    CreateKBRequest, KBResponse, CreateChatSessionRequest, ChatSessionResponse
+    CreateKBRequest, KBResponse, CreateChatSessionRequest, ChatSessionResponse,
+    CreateAssistantRequest, UpdateAssistantRequest, AssistantResponse, 
+    AssistantListResponse, AssistantStatsResponse, ApiResponse
 )
 
 # Tree/RAPTOR models
@@ -28,6 +31,7 @@ __all__ = [
     "ChunkORM",
     "KnowledgeBaseORM",
     "ChatSessionORM", 
+    "AssistantORM",
     "KnowledgeBaseStatus",
     "EmbeddingORM",
     "EmbeddingOwnerType",
@@ -41,6 +45,12 @@ __all__ = [
     "KBResponse",
     "CreateChatSessionRequest", 
     "ChatSessionResponse",
+    "CreateAssistantRequest",
+    "UpdateAssistantRequest",
+    "AssistantResponse",
+    "AssistantListResponse", 
+    "AssistantStatsResponse",
+    "ApiResponse",
     
     # Tree/RAPTOR models
     "SummaryOutput",

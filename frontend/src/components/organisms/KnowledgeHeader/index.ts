@@ -1,0 +1,1 @@
+export { KnowledgeHeader } from './KnowledgeHeader'

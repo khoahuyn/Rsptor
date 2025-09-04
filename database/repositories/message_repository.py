@@ -1,7 +1,6 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
-from sqlalchemy.orm import selectinload
 
 from .base import BaseRepository
 from models.database.message import MessageORM, MessageRole

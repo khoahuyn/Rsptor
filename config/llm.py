@@ -14,7 +14,7 @@ class LLMSettings(BaseSettings):
     summary_temperature: float = Field(0.3, env="LLM_SUMMARY_TEMPERATURE")  # From RAGFlow pattern
     
     # Concurrency settings (inspired by RAGFlow chat_limiter)
-    llm_concurrency: int = Field(8, env="LLM_CONCURRENCY")
+    llm_concurrency: int = Field(20, env="LLM_CONCURRENCY")  # Increased for RAPTOR performance
     
     @property
     def summary_prompt(self) -> str:

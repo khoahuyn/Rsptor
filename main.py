@@ -18,9 +18,13 @@ from api.assistant import router as assistant_router
 
 warnings.filterwarnings("ignore", module="umap")
 warnings.filterwarnings("ignore", message=".*n_jobs.*overridden.*random_state.*")
-logging.basicConfig(level=logging.WARNING)  
+logging.basicConfig(level=logging.INFO)  # Show INFO logs for debugging
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("root").setLevel(logging.WARNING)
+
+# Enable RAPTOR timing logs specifically
+logging.getLogger("services.build_tree").setLevel(logging.INFO)
+logging.getLogger("services.document.raptor_builder").setLevel(logging.INFO)
 
 app = FastAPI()
 

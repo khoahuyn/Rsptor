@@ -10,33 +10,14 @@ class ChunkOptimizer:
     
     @staticmethod
     def setup_pattern_cache(bullet_patterns: List[str], pattern_cache_enabled: bool) -> List[re.Pattern]:
-        """
-        Precompile regex patterns for performance
-        
-        Args:
-            bullet_patterns: List of regex patterns
-            pattern_cache_enabled: Whether to enable pattern caching
-            
-        Returns:
-            List of compiled regex patterns
-        """
+
         if pattern_cache_enabled:
             return [re.compile(pattern) for pattern in bullet_patterns]
         return []
 
     @staticmethod
     def get_text_by_token_count(text: str, target_tokens: int) -> str:
-        """
-        Extract text portion that contains approximately target_tokens
-        RAGFlow-style token-aware text extraction for overlap using REAL token counting
-        
-        Args:
-            text: Input text
-            target_tokens: Target number of tokens
-            
-        Returns:
-            Text portion with approximately target_tokens
-        """
+
         if target_tokens <= 0:
             return ""
         
@@ -66,18 +47,6 @@ class ChunkOptimizer:
     @staticmethod
     def batch_token_count(texts: List[str], token_cache_enabled: bool, 
                          cached_token_count_func=None) -> List[int]:
-        """
-        Batch token counting for performance
-        Process multiple texts at once to reduce overhead
-        
-        Args:
-            texts: List of texts to count tokens for
-            token_cache_enabled: Whether token caching is enabled
-            cached_token_count_func: Cached token count function
-            
-        Returns:
-            List of token counts
-        """
         if not texts:
             return []
         
@@ -95,18 +64,7 @@ class ChunkStatistics:
     @staticmethod
     def get_chunking_stats(chunks: List[DocumentChunk], chunk_size: int, 
                           pattern_set: int, overlap_percent: int) -> dict:
-        """
-        Generate hierarchical chunking statistics
-        
-        Args:
-            chunks: List of DocumentChunk objects
-            chunk_size: Configured chunk size
-            pattern_set: Pattern set used
-            overlap_percent: Overlap percentage
-            
-        Returns:
-            Dictionary with chunking statistics
-        """
+
         if not chunks:
             return {
                 "total_chunks": 0,
@@ -131,16 +89,7 @@ class TokenCacheManager:
     
     @staticmethod
     def create_cached_token_counter(cache_enabled: bool, cache_max_size: int = 10000):
-        """
-        Create cached token counter function
-        
-        Args:
-            cache_enabled: Whether to enable caching
-            cache_max_size: Maximum cache size
-            
-        Returns:
-            Token counting function (cached or regular)
-        """
+
         if cache_enabled:
             return lru_cache(maxsize=cache_max_size)(token_count)
         return token_count

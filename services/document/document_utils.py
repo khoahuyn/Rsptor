@@ -83,22 +83,3 @@ def prepare_chunk_data_list(chunks, token_count_fn):
     ]
 
 
-def prepare_embedding_data_list(chunks, embeddings, tenant_id, kb_id, doc_id, embed_config):
-    """Prepare embedding data for bulk save (RAGFlow approach)"""
-    return [
-        {
-            "id": f"{chunk.chunk_id}_embedding",
-            "tenant_id": tenant_id,
-            "kb_id": kb_id,
-            "owner_id": chunk.chunk_id,
-            "owner_type": "chunk",  # Will be converted to EmbeddingOwnerType by repository
-            "vector": embedding,
-            "model": embed_config.embed_model,
-            "dimension": len(embedding),
-            "meta": {
-                "doc_id": doc_id,
-                "chunk_index": i
-            }
-        }
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
-    ]

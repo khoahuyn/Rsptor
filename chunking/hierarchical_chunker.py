@@ -66,18 +66,7 @@ class HierarchicalChunker:
     
     async def chunk_only(self, text: str, doc_id: str, max_chunk_tokens: Optional[int] = None, 
                          progress_callback: Optional[Callable[[str], None]] = None) -> List[DocumentChunk]:
-        """
-        Hierarchical chunking - structure-aware splitting
-        
-        Args:
-            text: Text to chunk
-            doc_id: Document ID
-            max_chunk_tokens: Override chunk size
-            progress_callback: Optional callback for progress updates
-            
-        Returns:
-            List of DocumentChunk objects
-        """
+
         if not text or not text.strip():
             return []
         

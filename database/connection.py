@@ -27,14 +27,7 @@ def get_session_factory(
     enable_ssl: Optional[bool] = None,
     pool_pre_ping: bool = True
 ) -> async_sessionmaker[AsyncSession]:
-    """
-    Builds an async session factory for SQLAlchemy with caching for performance.
 
-    Args:
-        database_url: Optional database connection string. If None, uses DATABASE_URL from config.
-        enable_ssl: Optional flag to enable/disable SSL. If None, uses DB_ENABLE_SSL from config.
-        pool_pre_ping: Enable connection pool pre-ping
-    """
     global _session_factory_cache
     
     # Return cached factory if available and using default parameters

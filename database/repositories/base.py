@@ -108,12 +108,16 @@ class BaseRepository(Generic[ModelType]):
         except SQLAlchemyError as e:
             raise ValueError(f"Failed to check existence: {str(e)}")
     
-    async def bulk_create(self, records: List[Dict[str, Any]]) -> List[ModelType]:
+    async def bulk_create(self, records: List[Dict[str, Any]], skip_refresh: bool = False) -> List[ModelType]:
         """Bulk create records"""
         try:
             objects = [self.model(**record) for record in records]
             self.session.add_all(objects)
             await self.session.flush()
+            
+            # ✅ Skip refresh for embeddings (they have pre-defined IDs)
+            if skip_refresh:
+                return objects
             
             # Refresh all objects to get generated IDs (with concurrency handling)
             refreshed_objects = []

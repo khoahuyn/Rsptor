@@ -43,21 +43,27 @@ flowchart TD
         F --> G[Chat Service]
     end
     
+    subgraph "Embeddings"
+        H[VoyageAI Multi-Key]
+        I[BGE-M3 Local]
+    end
+    
     subgraph "Storage"
-        H[(Supabase DB)]
-        I[BGE-M3 Embeddings]
+        J[(Supabase DB)]
     end
     
     A -->|Parallel Upload| D
-    D --> H
+    D --> J
+    E --> H
     E --> I
-    G --> H
+    G --> J
     C -->|Real-time Chat| G
     
     style A fill:#e1f5fe
     style D fill:#fff3e0
     style G fill:#f3e5f5
     style H fill:#e8f5e8
+    style J fill:#f1f8e9
 ```
 
 ### Tech Stack
@@ -65,7 +71,9 @@ flowchart TD
 - **Backend**: FastAPI + Uvicorn (async)
 - **Frontend**: React + TypeScript + TanStack Router + Hero UI
 - **Database**: Supabase (PostgreSQL + pgvector) with Alembic migrations
-- **Embeddings**: BGE-M3 via Ollama (1024-dimensional vectors)
+- **Embeddings**: 
+  - **🏆 Recommended**: VoyageAI (multi-key, production-ready)
+  - **Alternative**: BGE-M3 via Ollama (local, cost-effective)
 - **LLM**: Gemini 1.5 Flash for chat + DeepSeek-V3 for summarization
 - **Clustering**: Gaussian Mixture Models + BIC optimization
 
@@ -96,6 +104,7 @@ flowchart TD
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/ragflow/process` | POST | Upload & process documents (supports .md/.markdown) |
+| `/v1/ragflow/process-optimized` | POST | 🚀 **Optimized processing** (recommended) |
 | `/v1/ragflow/retrieve` | POST | Raw retrieval with chunks and scores |
 
 ### 🗂️ Knowledge Base
@@ -114,7 +123,7 @@ flowchart TD
 
 - **Python 3.10+**
 - **Node.js 18+** (for frontend)
-- **Ollama** (for BGE-M3 embeddings)
+- **VoyageAI API Key** (recommended) or **Ollama** (for local BGE-M3)
 - **Supabase** account (for database)
 
 ### 2. Backend Setup
@@ -128,7 +137,7 @@ pip install -r requirements.txt
 
 # Setup environment
 cp env.template .env
-# Edit .env with your Supabase and API credentials
+# Edit .env with your credentials (see Configuration section)
 
 # Setup database
 python setup_database.py
@@ -149,8 +158,43 @@ npm install
 npm run dev
 ```
 
-### 4. Ollama Setup
+### 4. Access Applications
 
+- **Backend API**: http://localhost:8081
+- **API Documentation**: http://localhost:8081/docs
+- **Frontend UI**: http://localhost:5173
+
+---
+
+## 🔧 Configuration
+
+### 🏆 Recommended: VoyageAI Multi-Key Setup
+
+```env
+# VoyageAI Embeddings (RECOMMENDED for production)
+EMBED_BASE_URL=https://api.voyageai.com/v1
+EMBED_API_KEY=pa-key1,pa-key2,pa-key3,pa-key4,pa-key5,pa-key6
+EMBED_MODEL=voyage-context-3
+EMBED_VECTOR_DIM=1024
+
+# Benefits:
+# ✅ Fastest performance with parallel processing
+# ✅ Multi-key parallel processing (4-6 keys recommended)
+# ✅ Professional-grade reliability
+# ✅ Zero rate limits with proper key distribution
+```
+
+### 🔄 Alternative: BGE-M3 Local Setup
+
+```env
+# BGE-M3 Local Embeddings (cost-effective)
+EMBED_BASE_URL=http://localhost:11434/api/embeddings
+EMBED_API_KEY=
+EMBED_MODEL=bge-m3:latest
+EMBED_VECTOR_DIM=1024
+```
+
+**Setup Ollama for BGE-M3:**
 ```bash
 # Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
@@ -158,15 +202,75 @@ curl -fsSL https://ollama.com/install.sh | sh
 # Pull BGE-M3 model
 ollama pull bge-m3:latest
 
+# Start Ollama service
+ollama serve
+
 # Verify
 curl http://localhost:11434/api/tags
 ```
 
-### 5. Access Applications
+### Complete Environment Variables
 
-- **Backend API**: http://localhost:8081
-- **API Documentation**: http://localhost:8081/docs
-- **Frontend UI**: http://localhost:5173
+```env
+# === EMBEDDING CONFIGURATION ===
+# VoyageAI (RECOMMENDED - fastest performance)
+EMBED_BASE_URL=https://api.voyageai.com/v1
+EMBED_API_KEY=pa-key1,pa-key2,pa-key3,pa-key4,pa-key5,pa-key6
+EMBED_MODEL=voyage-context-3
+EMBED_VECTOR_DIM=1024
+
+# Alternative: BGE-M3 Local (cost-effective)
+# EMBED_BASE_URL=http://localhost:11434/api/embeddings
+# EMBED_API_KEY=
+# EMBED_MODEL=bge-m3:latest
+# EMBED_VECTOR_DIM=1024
+
+# === LLM CONFIGURATION ===
+# FPT Cloud for document summarization
+LLM_BASE_URL=https://mkp-api.fptcloud.com/v1
+LLM_API_KEY=your_fpt_cloud_api_key
+LLM_MODEL=DeepSeek-V3
+
+# Google Gemini for smart chat
+GEMINI_API_KEY=your_gemini_api_key
+
+# === DATABASE CONFIGURATION ===
+# Supabase PostgreSQL with pgvector
+DATABASE_URL=postgresql+psycopg://postgres.PROJECT_ID:PASSWORD@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require
+DB_ENABLE_SSL=true
+DB_SSL_CERT_PATH=prod-ca-2021.crt
+SUPABASE_SSLROOTCERT=./database/prod-ca-2021.crt
+
+# === OPTIONAL CONFIGURATION ===
+# Raptor tree building
+RAPTOR_MAX_CLUSTERS=64
+RAPTOR_THRESHOLD=0.1
+RAPTOR_RANDOM_SEED=42
+
+# Chunking
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+
+# API settings
+API_HOST=0.0.0.0
+API_PORT=8081
+API_RELOAD=true
+```
+
+### 🔑 VoyageAI Multi-Key Best Practices
+
+**✅ Recommended Key Count:** 4-6 keys
+```env
+# Example with multiple keys for optimal performance
+EMBED_API_KEY=pa-xxxxxxxxxx1,pa-xxxxxxxxxx2,pa-xxxxxxxxxx3,pa-xxxxxxxxxx4,pa-xxxxxxxxxx5,pa-xxxxxxxxxx6
+```
+
+**Benefits of Multiple Keys:**
+- 🚀 **Parallel Processing**: True parallel embedding across all keys
+- ⚡ **Zero Rate Limits**: Smart load balancing prevents rate limit encounters
+- 🎯 **Optimal Performance**: Significantly faster than sequential processing
+- 🛡️ **Automatic Failover**: Rapid failover if any key encounters issues
+- 📊 **Token-aware Selection**: Prioritizes keys with lower current usage
 
 ---
 
@@ -191,37 +295,6 @@ curl http://localhost:11434/api/tags
 
 ---
 
-## 🔧 Configuration
-
-### Environment Variables
-
-```env
-# Database
-DATABASE_URL=postgresql+asyncpg://postgres.PROJECT_ID:PASSWORD@...supabase.com:6543/postgres?sslmode=require
-
-# API Keys  
-GEMINI_API_KEY=your_gemini_api_key
-LLM_API_KEY=your_fpt_cloud_api_key
-
-# BGE-M3 Embeddings
-EMBED_BASE_URL=http://localhost:11434/api/embeddings
-EMBED_MODEL=bge-m3:latest
-EMBED_VECTOR_DIM=1024
-
-# Optional
-RAPTOR_MAX_CLUSTERS=64
-CHUNK_SIZE=1000
-```
-
-### Key Configuration Files
-
-- `config/database.py` - Database connection and pooling settings
-- `config/embedding.py` - BGE-M3 embedding configuration  
-- `config/raptor.py` - RAPTOR tree building parameters
-- `config/chat.py` - Gemini LLM settings
-
----
-
 ## 🧪 Usage Examples
 
 ### Create AI Assistant
@@ -238,10 +311,10 @@ curl -X POST "http://localhost:8081/v1/ai/assistants" \
   }'
 ```
 
-### Upload Documents
+### Upload Documents (Optimized)
 
 ```bash
-curl -X POST "http://localhost:8081/v1/ragflow/process" \
+curl -X POST "http://localhost:8081/v1/ragflow/process-optimized" \
   -F "file=@technical_guide.md" \
   -F "tenant_id=demo" \
   -F "kb_id=my_documents" \
@@ -275,15 +348,40 @@ curl -X POST "http://localhost:8081/v1/chat/sessions/{session_id}/chat" \
 
 ## 📊 Performance & Scalability
 
-### RAPTOR Processing Performance
-- **Upload Speed**: Multiple files processed in parallel
-- **Tree Building**: GMM clustering with BIC optimization (typically 1-3 minutes)
-- **Embedding Generation**: BGE-M3 1024-dimensional vectors via Ollama
-- **Query Response**: ~1-2 seconds for retrieval + generation
+### 🏆 RAPTOR Processing Performance
+
+**VoyageAI Multi-Key (Recommended):**
+```bash
+✅ RAPTOR Tree Building: Fast and reliable
+✅ Embedding Generation: Near-instant with parallel processing
+✅ Total Processing: Optimized for production workloads
+✅ Parallel Keys: Multiple keys simultaneous processing
+✅ Rate Limits: Zero encounters with proper load balancing
+```
+
+**BGE-M3 Local (Optimized):**
+```bash
+✅ RAPTOR Tree Building: Competitive performance
+✅ Embedding Generation: Fast with optimized parallel processing
+✅ Total Processing: Efficient for cost-conscious deployments
+✅ Parallel Processing: High concurrent connections
+✅ Cost: Zero API costs
+```
+
+### Performance Comparison
+
+| Feature | VoyageAI Multi-Key | BGE-M3 Local |
+|---------|-------------------|--------------|
+| **RAPTOR Speed** | Fastest ⚡ | Fast ✅ |
+| **Embedding Speed** | Excellent 🚀 | Good ✅ |
+| **Reliability** | Production-grade 🛡️ | Reliable 🛡️ |
+| **Cost** | API usage 💳 | Free 🆓 |
+| **Privacy** | Cloud ☁️ | Local 🔒 |
 
 ### Database Features
 - **Multi-tenant Isolation**: Data separated by `tenant_id`
 - **Vector Search**: pgvector with HNSW indexing for fast similarity search
+- **Optimized Writes**: Bulk operations with skip-refresh for embeddings
 - **Cascade Deletion**: Automatic cleanup when deleting assistants
 - **Migration System**: Alembic for database schema management
 
@@ -305,6 +403,13 @@ curl -X POST "http://localhost:8081/v1/chat/sessions/{session_id}/chat" \
 python setup_database.py
 
 # Check Supabase project status and credentials in .env
+```
+
+**❌ VoyageAI API Issues**
+```bash
+# Check API keys format
+# Ensure keys start with "pa-" and are comma-separated
+# Verify API key permissions and rate limits
 ```
 
 **❌ Ollama/BGE-M3 Not Working**
@@ -344,7 +449,7 @@ Check browser console for frontend issues and backend logs for API problems.
 ## 🚀 Production Deployment
 
 ### Backend Deployment
-1. Set production environment variables
+1. Set production environment variables (use VoyageAI for best performance)
 2. Run database migrations: `alembic upgrade head`
 3. Deploy FastAPI with proper ASGI server (Gunicorn + Uvicorn)
 4. Configure reverse proxy (Nginx) for static files and API
@@ -362,6 +467,13 @@ npm run build
 - [ ] Configure CORS for production domains
 - [ ] Set up proper database user permissions
 - [ ] Regular backup of database and uploaded files
+- [ ] Rotate VoyageAI API keys regularly
+
+### Production Recommendations
+- **🏆 Use VoyageAI**: Best performance and reliability
+- **📊 Monitor Usage**: Track API usage and costs
+- **🔄 Load Balancing**: Consider multiple backend instances
+- **📈 Scaling**: Add more VoyageAI keys for higher throughput
 
 ---
 
@@ -404,6 +516,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **RAPTOR**: Based on the RAPTOR paper for hierarchical retrieval (arXiv:2401.18059)
 - **RAGFlow**: Inspired by RAGFlow's hybrid retrieval methodology
+- **VoyageAI**: Advanced embedding APIs with excellent performance
 - **BGE-M3**: Beijing Academy of AI's multilingual embedding model
 - **Supabase**: Modern PostgreSQL with vector extensions
 - **Ollama**: Local embedding model serving
@@ -412,3 +525,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 *Built with ❤️ for intelligent document processing and AI assistant management*
+
+*🏆 Optimized for production with VoyageAI multi-key embedding and RAPTOR hierarchical trees*

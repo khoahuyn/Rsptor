@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Union, Generator, Optional
+from typing import List, Dict, Union, Generator, Optional
 
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -11,8 +11,6 @@ class GeminiChat(BaseChatModel):
     Gemini AI chat model implementation
     Follows RAGFlow's pattern with _FACTORY_NAME for auto-registration
     """
-    
-    # Factory name for auto-registration (RAGFlow pattern)
     _FACTORY_NAME = ["gemini", "google-gemini", "google"]
     
     def __init__(self, api_key: str, model_name: str = "gemini-1.5-flash", **kwargs):
@@ -97,17 +95,7 @@ class GeminiChat(BaseChatModel):
              messages: List[Union[Message, Dict[str, str]]], 
              stream: bool = False,
              **kwargs) -> Union[ChatResponse, Generator[str, None, None]]:
-        """
-        Generate chat completion using Gemini
         
-        Args:
-            messages: List of conversation messages
-            stream: Whether to stream the response
-            **kwargs: Additional generation parameters
-            
-        Returns:
-            ChatResponse object or Generator for streaming
-        """
         # Format messages
         formatted_messages = self._format_messages(messages)
         gemini_messages = self._convert_messages_to_gemini_format(formatted_messages)
@@ -172,16 +160,7 @@ class GeminiChat(BaseChatModel):
             return self._retry_with_backoff(_generate)
     
     def simple_chat(self, prompt: str, **kwargs) -> str:
-        """
-        Simple chat interface for single prompt
-        
-        Args:
-            prompt: User prompt
-            **kwargs: Additional parameters
-            
-        Returns:
-            Generated response text
-        """
+
         messages = [{"role": "user", "content": prompt}]
         response = self.chat(messages, stream=False, **kwargs)
         return response.content
@@ -191,18 +170,7 @@ class GeminiChat(BaseChatModel):
                          context: str, 
                          system_prompt: Optional[str] = None,
                          **kwargs) -> str:
-        """
-        Chat with retrieved context (perfect for RAG)
-        
-        Args:
-            query: User question
-            context: Retrieved context from RAPTOR
-            system_prompt: Optional system instruction
-            **kwargs: Additional parameters
-            
-        Returns:
-            Generated answer
-        """
+
         # Default system prompt for RAG
         if system_prompt is None:
             from ..prompts.chat import RAG_SYSTEM_PROMPT

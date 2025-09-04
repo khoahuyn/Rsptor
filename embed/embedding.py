@@ -9,6 +9,8 @@ from utils import get_embed_cache, set_embed_cache
 
 logger = logging.getLogger(__name__)
 
+# Global embedder cache to persist round-robin counter
+_voyage_embedder_cache = {}
 
 EmbedError = EmbeddingError
 
@@ -26,6 +28,8 @@ def get_provider_config(cfg: EmbeddingSettings) -> Dict[str, Any]:
         base_config = VoyageConfig.get_optimized_config(
             is_production=is_voyage_key
         )
+        
+        
         return {
             **base_config,
             "base_url": cfg.embed_base_url,
@@ -45,7 +49,7 @@ def get_provider_config(cfg: EmbeddingSettings) -> Dict[str, Any]:
 
 
 async def embed_texts(texts: List[str], vector_dim: int, cfg: EmbeddingSettings) -> List[List[float]]:
-    """Main embedding function with provider-specific optimizations + retry logic"""
+
     if not cfg.embed_base_url or not cfg.embed_model:
         raise EmbedError("embedding config missing: require EMBED_BASE_URL (endpoint) and EMBED_MODEL")
 
@@ -54,28 +58,16 @@ async def embed_texts(texts: List[str], vector_dim: int, cfg: EmbeddingSettings)
         return []
     
     if vector_dim not in EmbeddingConstants.STANDARD_DIMENSIONS:
-        print(f"Warning: Non-standard vector dimension {vector_dim}")
+        logger.warning(f"⚠️ Non-standard vector dimension {vector_dim}")
 
-    # Retry logic with exponential backoff (RAGFlow pattern)
-    import time
-    import random
+    logger.info(f"🚀 EMBED_TEXTS: Processing {len(texts)} texts with intelligent batching")
     
-    retry_max = 3
-    base_delay = 1.0  # Start with 1 second
-    
-    for attempt in range(retry_max):
-        try:
-            return await _embed_texts_internal(texts, vector_dim, cfg)
-            
-        except Exception as e:
-            if attempt == retry_max - 1:  # Last attempt
-                logger.error(f"❌ Embedding failed after {retry_max} attempts: {e}")
-                raise EmbedError(f"Embedding failed after {retry_max} retries: {str(e)}")
-            
-            # Exponential backoff: 1s, 2s, 4s
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)  # Add jitter
-            logger.warning(f"⚠️ Embedding attempt {attempt + 1} failed: {e}. Retrying in {delay:.1f}s...")
-            time.sleep(delay)
+    # 🔥 USE BATCH PROCESSING for all scenarios (single + multiple texts)
+    try:
+        return await embed_texts_batch(texts, vector_dim, cfg)
+    except Exception as e:
+        logger.error(f"❌ Batch embedding failed: {e}")
+        raise EmbedError(f"Batch embedding failed: {str(e)}")
 
 
 async def _embed_texts_internal(texts: List[str], vector_dim: int, cfg: EmbeddingSettings) -> List[List[float]]:
@@ -90,6 +82,7 @@ async def _embed_texts_internal(texts: List[str], vector_dim: int, cfg: Embeddin
         
         api_keys = provider_config.get("api_keys", [])
         
+        
         # Ensure we have at least one key
         if not api_keys and cfg.embed_api_key:
             api_keys = [cfg.embed_api_key]
@@ -97,21 +90,32 @@ async def _embed_texts_internal(texts: List[str], vector_dim: int, cfg: Embeddin
         if not api_keys:
             raise EmbedError("No Voyage API keys provided")
         
-        # Use unified multi-key embedder (handles 1 or more keys)
-        embedder = create_voyage_multi_key_embedder(
-            api_keys=api_keys,
-            model=cfg.embed_model,
-            dimension=cfg.embed_dimension
-        )
+        # Create or get cached smart multi-key embedder (preserves round-robin counter)
+        cache_key = f"{cfg.embed_model}_{len(api_keys)}_{hash(tuple(api_keys))}"
         
-        # Adaptive batching based on key count and performance
-        from .adaptive_batch import get_adaptive_batch_size, record_batch_performance
+        if cache_key not in _voyage_embedder_cache:
+            logger.info(f"🔄 Creating new Voyage embedder for cache key: {cache_key[:20]}...")
+            try:
+                _voyage_embedder_cache[cache_key] = create_voyage_multi_key_embedder(
+                    api_keys=api_keys,
+                    model=cfg.embed_model,
+                    dimension=cfg.embed_dimension
+                )
+            except ValueError as e:
+                if "MULTIPLE KEYS REQUIRED" in str(e):
+                    raise EmbedError(f"❌ Configuration Error: {str(e)}")
+                raise e
+        else:
+            logger.info(f"♻️ Using cached Voyage embedder: {cache_key[:20]}...")
+        
+        embedder = _voyage_embedder_cache[cache_key]
+        # ✅ Removed _single_text_counter debug log (attribute no longer exists after cleanup)
         
         # Calculate base batch size considering multi-key setup
         key_multiplier = min(len(api_keys), 8)  # Support up to 8 keys
         base_batch_size = 4 * key_multiplier  # 4 texts per key
         
-        # Update provider config for adaptive sizing
+        # Update provider config for batch sizing
         voyage_adaptive_config = provider_config.copy()
         voyage_adaptive_config.update({
             "batch_size": base_batch_size,
@@ -119,27 +123,14 @@ async def _embed_texts_internal(texts: List[str], vector_dim: int, cfg: Embeddin
             "target_response_time": 3.0,  # Voyage is typically slower than BGE
         })
         
-        # Get optimal batch size
-        optimal_batch_size = get_adaptive_batch_size("Voyage", voyage_adaptive_config, len(texts))
+        # Use fixed batch size from config
+        batch_size = voyage_adaptive_config["batch_size"]
         
-        logger.info(f"Using {len(api_keys)} Voyage key(s), adaptive batch size: {optimal_batch_size}")
+        logger.info(f"Using {len(api_keys)} Voyage key(s), batch size: {batch_size}")
         
-        # Measure performance
-        import time
-        start_time = time.time()
-        try:
-            vectors = embedder.embed_texts_batch_balanced(texts, max_batch_size=optimal_batch_size, smart_batching=True)
-            
-            # Record successful performance
-            response_time = time.time() - start_time
-            record_batch_performance("Voyage", optimal_batch_size, response_time, True)
-            logger.debug(f"🎯 Voyage batch {optimal_batch_size} texts in {response_time:.1f}s")
-            
-        except Exception as e:
-            # Record failed performance and re-raise
-            response_time = time.time() - start_time
-            record_batch_performance("Voyage", optimal_batch_size, response_time, False)
-            raise e
+        # 🎯 SMART PARALLEL EXECUTION - Optimal resource allocation
+        logger.info(f"🎯 Using SMART PARALLEL execution with resource allocation for {len(texts)} texts")
+        vectors = await embedder.embed_texts_smart_parallel(texts)
     else:
         # Use direct requests for BGE/Ollama embedding
         vectors = await _embed_texts_bge(
@@ -160,49 +151,61 @@ async def _embed_texts_internal(texts: List[str], vector_dim: int, cfg: Embeddin
     return vectors
 
 
+async def embed_texts_batch(texts: List[str], vector_dim: int, cfg: EmbeddingSettings) -> List[List[float]]:
+
+    if not texts:
+        return []
+    
+    logger.info(f"🔥 BATCH EMBEDDING: Processing {len(texts)} texts")
+    
+    # Phase 1: Check cache for all texts
+    cached_results = {}
+    uncached_texts = []
+    uncached_indices = []
+    
+    for i, text in enumerate(texts):
+        cached = get_embed_cache(model=cfg.embed_model, text=text)
+        if cached is not None:
+            cached_results[i] = cached
+        else:
+            uncached_texts.append(text)
+            uncached_indices.append(i)
+    
+    logger.info(f"📊 Cache stats: {len(cached_results)} hits, {len(uncached_texts)} misses")
+    
+    # Phase 2: Batch embed uncached texts (MAXIMUM BATCH SIZE)
+    if uncached_texts:
+        logger.info(f"🚀 Batch embedding {len(uncached_texts)} uncached texts")
+        embeddings = await _embed_texts_internal(uncached_texts, vector_dim, cfg)
+        
+        # Cache new embeddings
+        for text, embedding in zip(uncached_texts, embeddings):
+            set_embed_cache(model=cfg.embed_model, text=text, embedding=embedding)
+    else:
+        embeddings = []
+    
+    # Phase 3: Combine results in original order
+    results = [None] * len(texts)
+    
+    # Fill cached results
+    for i, cached_emb in cached_results.items():
+        results[i] = cached_emb
+    
+    # Fill new embeddings  
+    for uncached_idx, embedding in zip(uncached_indices, embeddings):
+        results[uncached_idx] = embedding
+    
+    logger.info(f"✅ Batch completed: {len(results)} embeddings returned")
+    return results
+
+
 async def embed_text_cached(text: str, vector_dim: int, cfg: EmbeddingSettings) -> List[float]:
     """
-    Single text embedding with RAGFlow-style caching + retry logic
+    Single text embedding - now uses batch function for consistency and parallel optimization
     """
-    # Check cache first (RAGFlow approach)
-    cached_embedding = get_embed_cache(model=cfg.embed_model, text=text)
-    if cached_embedding is not None:
-        return cached_embedding
-    
-    # Retry logic for cache miss
-    import time
-    import random
-    
-    retry_max = 3
-    base_delay = 1.0  # Start with 1 second
-    
-    for attempt in range(retry_max):
-        try:
-            # Cache miss - get embedding
-            embeddings = await _embed_texts_internal([text], vector_dim, cfg)
-            if not embeddings:
-                raise EmbedError("No embedding returned for text")
-            
-            embedding = embeddings[0]
-            
-            # Cache the result (RAGFlow approach)
-            set_embed_cache(model=cfg.embed_model, text=text, embedding=embedding)
-            
-            return embedding
-            
-        except Exception as e:
-            if attempt == retry_max - 1:  # Last attempt
-                logger.error(f"❌ Single text embedding failed after {retry_max} attempts: {e}")
-                # Return zero vector as fallback
-                return [0.0] * vector_dim
-            
-            # Exponential backoff: 1s, 2s, 4s  
-            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)  # Add jitter
-            logger.warning(f"⚠️ Single embedding attempt {attempt + 1} failed: {e}. Retrying in {delay:.1f}s...")
-            time.sleep(delay)
-    
-    # Fallback (should not reach here)
-    return [0.0] * vector_dim
+    # Use batch function for consistency (will hit batch buffer for true parallel)
+    results = await embed_texts_batch([text], vector_dim, cfg)
+    return results[0] if results else [0.0] * vector_dim
 
 
 async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider_config: Dict[str, Any] = None) -> List[List[float]]:
@@ -211,38 +214,36 @@ async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider
     """
     import asyncio
     import aiohttp
-    import time
     
     # Use provider config or fallback to defaults
     if provider_config is None:
         provider_config = BGEConfig.get_optimized_config()
     
-    # Get adaptive batch sizer
-    from .adaptive_batch import get_adaptive_batch_size, record_batch_performance
-    
-    timeout = provider_config.get("timeout", 30) 
-    rpm_limit = provider_config.get("rpm_limit", 60)     # Updated to match BGEConfig.DEFAULT_RPM_LIMIT
+    # Use optimized config for LOCAL BGE - NO RATE LIMITING
+    timeout = provider_config.get("timeout", 60)      
     max_retries = provider_config.get("max_retries", 3)
+    max_concurrent = provider_config.get("max_concurrent", 8)  
     
-    # Calculate delay between requests based on RPM limit
-    min_delay = 60.0 / rpm_limit if rpm_limit > 0 else 0.1  # seconds between requests
     
     headers = {"Content-Type": "application/json"}
     vectors = []
     
-    # Process texts in batches for better performance
+    # ✅ HIGH-PERFORMANCE parallel processing for local BGE
+    logger.info(f"🔥 BGE LOCAL: Processing {len(texts)} texts with aggressive parallel batching")
+    
     async def embed_batch_async(batch_texts: List[str]) -> List[List[float]]:
-        """Async batch processing for better concurrency"""
+        """OPTIMIZED async batch processing - LOCAL BGE performance mode"""
         batch_vectors = []
         
-        # Strengthen async with better retry handling
+        # ✅ MAXIMUM CONCURRENCY for local BGE (no rate limits)
+        semaphore = asyncio.Semaphore(max_concurrent)  # Control concurrency
+        
         async with aiohttp.ClientSession() as session:
             tasks = []
             
-            for i, text in enumerate(batch_texts):
-                # Add delay between requests to respect RPM limit
-                delay = i * min_delay
-                tasks.append(embed_single_text_async(session, text, delay))
+            for text in batch_texts:
+                # ✅ TRUE PARALLEL - No delays, semaphore-controlled concurrency
+                tasks.append(embed_single_with_semaphore(session, semaphore, text))
             
             # Execute all requests concurrently with better error handling
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -256,10 +257,14 @@ async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider
         
         return batch_vectors
     
+    async def embed_single_with_semaphore(session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, text: str) -> List[float]:
+        """Semaphore-controlled embedding for optimal local BGE performance"""
+        async with semaphore:
+            return await embed_single_text_async(session, text)
+    
     async def embed_single_text_async(session: aiohttp.ClientSession, text: str, delay: float = 0) -> List[float]:
-        """Single text embedding with retry logic"""
-        if delay > 0:
-            await asyncio.sleep(delay)
+        """Single text embedding with retry logic - OPTIMIZED for local BGE"""
+        # ✅ No delays for local BGE - maximum performance
         
         payload = {"model": model, "prompt": text}
         
@@ -296,36 +301,26 @@ async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider
                 raise EmbeddingError(f"BGE request failed: {e}", "BGE_REQUEST_FAILED")
     
     
-    # Process all texts in adaptive batches
+    # Process all texts in LARGE batches for optimal local performance
+    batch_size = provider_config.get("batch_size", 32)  # ✅ Large batches like VoyageAI
+    
     try:
         i = 0
         while i < len(texts):
-            # Get optimal batch size for current conditions
-            optimal_batch_size = get_adaptive_batch_size("BGE", provider_config, len(texts) - i)
-            batch_texts = texts[i:i + optimal_batch_size]
-            
-            # Measure performance for adaptive sizing
-            start_time = time.time()
-            success = False
+            # Use fixed batch size from config
+            current_batch_size = min(batch_size, len(texts) - i)
+            batch_texts = texts[i:i + current_batch_size]
             
             try:
                 # ASYNC ONLY - No fallback, better performance + top-level retry handles errors
                 batch_vectors = await embed_batch_async(batch_texts)
                 vectors.extend(batch_vectors)
-                success = True
                 
             except Exception as e:
-                # Record failed performance and re-raise
-                response_time = time.time() - start_time
-                record_batch_performance("BGE", optimal_batch_size, response_time, False)
                 raise e
             
-            # Record successful performance
-            response_time = time.time() - start_time
-            record_batch_performance("BGE", optimal_batch_size, response_time, True)
-            
-            logger.debug(f"🎯 BGE batch {optimal_batch_size} texts in {response_time:.1f}s")
-            i += optimal_batch_size
+            logger.info(f"✅ BGE LOCAL batch {current_batch_size} texts completed - PARALLEL PROCESSING")
+            i += current_batch_size
     
     except Exception as e:
         raise EmbeddingError(f"BGE batch processing failed: {e}", "BGE_BATCH_FAILED")

@@ -1,11 +1,12 @@
 import asyncio
 import logging
 import numpy as np
+import time
 import umap
 from sklearn.mixture import GaussianMixture
 from typing import List, Tuple, Optional, Callable
 
-from llm.summary import summarize_cluster_from_contents
+from llm.async_summary import summarize_cluster_from_contents_async
 from models import RaptorParams
 
 
@@ -66,11 +67,11 @@ class BuildTree:
         optimal_clusters = n_clusters[np.argmin(bics)]
         return optimal_clusters
         
-    async def _summarize_cluster(self, cluster_texts: List[str]) -> str:
+    async def _summarize_cluster(self, cluster_texts: List[str], cluster_id: int = 0) -> str:
         """
-        Summarize a cluster of texts
+        Summarize a cluster of texts using optimized async LLM
         """
-        # Use existing summarization logic
+        # Use async optimized summarization
         try:
             # Generate dummy member IDs for the function
             member_ids = [f"chunk_{i}" for i in range(len(cluster_texts))]
@@ -85,16 +86,18 @@ class BuildTree:
                 summary_max_tokens=self.max_token  # Use class max_token
             )
             
-            summary = summarize_cluster_from_contents(
+            # 🚀 USE ASYNC OPTIMIZED VERSION
+            summary = await summarize_cluster_from_contents_async(
                 member_contents=cluster_texts,
                 member_ids=member_ids,
-                p=raptor_params
+                p=raptor_params,
+                cluster_id=cluster_id
             )
             logger.debug(f"📝 Generated summary: {summary[:100]}...")
             return summary
         except Exception as e:
             logger.error(f"❌ Summarization failed: {e}")
-            # Fallback: concatenate first sentences
+            # Fallback: concatenate first sentences  
             fallback = ". ".join([text.split('.')[0] for text in cluster_texts[:3]])
             return fallback + "..."
     
@@ -140,18 +143,23 @@ class BuildTree:
         """
         Build RAPTOR tree and return augmented chunks
         """
+        # 🕐 START OVERALL TIMER
+        overall_start_time = time.time()
+        
         if len(chunks) <= 1:
             logger.info("🛑 Only 1 chunk, no tree building needed")
             return chunks
             
         # Filter valid chunks
+        preprocessing_start = time.time()
         valid_chunks = [(content, emb) for content, emb in chunks 
                        if content and emb is not None and len(emb) > 0]
         
         if len(valid_chunks) != len(chunks):
             logger.warning(f"⚠️ Filtered {len(chunks) - len(valid_chunks)} invalid chunks")
             
-        logger.info(f"🌱 Starting RAPTOR with {len(valid_chunks)} chunks")
+        preprocessing_time = time.time() - preprocessing_start
+        logger.info(f"🌱 RAPTOR START: {len(valid_chunks)} chunks (preprocessing: {preprocessing_time:.2f}s)")
         
         # Track all chunks (original + summaries) with level information
         # Original chunks are level 0, summaries start from level 1
@@ -163,6 +171,9 @@ class BuildTree:
         
         # Build tree layer by layer (RAGFlow approach)
         while end - start > 1 and layer_num < self.max_levels:
+            
+            # 🕐 LAYER TIMER
+            layer_start_time = time.time()
             layer_num += 1
             current_chunks = all_chunks[start:end]
             embeddings = np.array([emb for _, emb, _ in current_chunks])
@@ -171,11 +182,18 @@ class BuildTree:
             
             # Special case: only 2 chunks
             if len(embeddings) == 2:
+                # 🚀 SPECIAL CASE: 2 chunks direct processing
+                two_chunk_start = time.time()
                 texts = [content for content, _, _ in current_chunks]
-                summary = await self._summarize_cluster(texts)
-                summary_embedding = await self._embed_text(summary)
+                
+                summary = await self._summarize_cluster(texts, cluster_id=0)
+                summary_embedding = await self._embed_text(summary)  # Single call OK here
                 # Include level information for raptor_builder
                 all_chunks.append((summary, summary_embedding, layer_num))
+                
+                two_chunk_time = time.time() - two_chunk_start
+                layer_time = time.time() - layer_start_time
+                logger.info(f"✅ LAYER {layer_num} (2-chunk): {layer_time:.2f}s total, processing: {two_chunk_time:.2f}s")
                 
                 if callback:
                     callback(msg=f"Layer {layer_num}: {len(current_chunks)} → 1 clusters")
@@ -217,14 +235,15 @@ class BuildTree:
             labels = lbls
             logger.info(f"🎯 GMM: {len(reduced_embeddings)} chunks → {n_clusters} clusters")
             
-            # Summarize each cluster in parallel with concurrency control (Raptor-service pattern)
-            logger.debug(f"🚀 Starting parallel summarization for {n_clusters} clusters (max concurrent: {self.llm_concurrency})")
+            # 📝 STEP 2: LLM SUMMARIZATION PHASE
+            logger.info(f"📝 LLM SUMMARIZATION: {n_clusters} clusters with {self.llm_concurrency} max concurrent")
+            llm_start_time = time.time()
             
             # Create semaphore for concurrency control
             sem = asyncio.Semaphore(max(1, self.llm_concurrency))
             
             async def summarize_single_cluster_asyncio(cluster_id):
-                """Asyncio-compatible cluster summarizer with concurrency control"""
+                """Asyncio-compatible cluster summarizer with concurrency control - SUMMARIES ONLY"""
                 async with sem:  # Raptor-service pattern: limit concurrent LLM calls
                     cluster_indices = [i for i, label in enumerate(labels) if label == cluster_id]
                     cluster_texts = [current_chunks[i][0] for i in cluster_indices]  # [0] is content, same for 3-tuples
@@ -232,17 +251,37 @@ class BuildTree:
                     if not cluster_texts:
                         return None
                     
-                    summary = await self._summarize_cluster(cluster_texts)
-                    summary_embedding = await self._embed_text(summary)
+                    summary = await self._summarize_cluster(cluster_texts, cluster_id=cluster_id)
                     logger.debug(f"📝 Cluster {cluster_id}: {len(cluster_texts)} chunks → summary")
-                    return (summary, summary_embedding)
+                    return summary  # ✅ Return summary only, embed later in parallel
             
-            # Execute all clusters in parallel with concurrency control
+            # 🚀 PHASE 1: Generate all summaries in parallel
+            logger.info(f"🚀 Phase 1: Generating {n_clusters} summaries in parallel")
             cluster_tasks = [summarize_single_cluster_asyncio(cluster_id) for cluster_id in range(n_clusters)]
-            cluster_results = await asyncio.gather(*cluster_tasks)
-            new_summaries = [result for result in cluster_results if result is not None]
+            summary_results = await asyncio.gather(*cluster_tasks)
+            summaries = [result for result in summary_results if result is not None]
             
-            logger.info(f"✅ Asyncio parallel processing completed: {len(new_summaries)} summaries")
+            # 🚀 STEP 3: EMBEDDING PHASE
+            embed_start_time = time.time()
+            logger.info(f"🚀 EMBEDDING: {len(summaries)} summaries in TRUE PARALLEL")
+            if summaries:
+                # 🚀 BATCH EMBEDDING: All summaries at once for maximum parallelism
+                from embed.embedding import embed_texts_batch
+                embeddings = await embed_texts_batch(summaries, self.embed_config.embed_dimension, self.embed_config)
+                
+                # Convert back to numpy arrays for consistency
+                embeddings = [np.array(emb) for emb in embeddings]
+                
+                # Combine summaries with embeddings
+                new_summaries = list(zip(summaries, embeddings))
+            else:
+                new_summaries = []
+            
+            embed_time = time.time() - embed_start_time
+            logger.info(f"✅ EMBEDDING COMPLETED: {len(new_summaries)} summaries in {embed_time:.2f}s")
+            
+            llm_time = time.time() - llm_start_time
+            logger.info(f"✅ LLM SUMMARIZATION COMPLETED: {len(new_summaries)} summaries in {llm_time:.2f}s")
             
             # Add summaries to all_chunks with level information
             summaries_with_level = [(summary, embedding, layer_num) for summary, embedding in new_summaries]
@@ -256,11 +295,50 @@ class BuildTree:
             start = end
             end = len(all_chunks)
             
+            # 🕐 LAYER COMPLETION
+            layer_time = time.time() - layer_start_time
+            logger.info(f"✅ LAYER {layer_num} COMPLETED: {layer_time:.2f}s total")
+            # Log breakdown if timing variables are available
+            breakdown_parts = []
+            try:
+                clustering_total_var = locals().get('clustering_total')
+                if clustering_total_var is not None:
+                    breakdown_parts.append(f"Clustering: {clustering_total_var:.2f}s")
+            except (NameError, TypeError):
+                pass
+            try:
+                llm_time_var = locals().get('llm_time')
+                if llm_time_var is not None:
+                    breakdown_parts.append(f"LLM: {llm_time_var:.2f}s") 
+            except (NameError, TypeError):
+                pass
+            try:
+                embed_time_var = locals().get('embed_time')
+                if embed_time_var is not None:
+                    breakdown_parts.append(f"Embedding: {embed_time_var:.2f}s")
+            except (NameError, TypeError):
+                pass
+            if breakdown_parts:
+                logger.info(f"   📊 Layer breakdown - {', '.join(breakdown_parts)}")
+            logger.info(f"   📈 Progress: {len(valid_chunks)} → {len(all_chunks)} total chunks")
+            
+            # 🚦 KEY ROTATION: Random key selection should prevent rate limits
+            # Inter-layer cooldown removed - using smart key rotation instead
+            
         # Check if we reached max levels (safety guard - not in RAGFlow but good practice)
         if layer_num >= self.max_levels:
             logger.warning(f"⚠️ Reached maximum tree levels ({self.max_levels}) - stopping for safety (not RAGFlow behavior)")
             
-        logger.info(f"✅ RAPTOR complete: {len(valid_chunks)} → {len(all_chunks)} total chunks ({layer_num} layers)")
+        # 🎉 OVERALL COMPLETION
+        overall_time = time.time() - overall_start_time
+        logger.info(f"🎉 RAPTOR TREE COMPLETED: {len(valid_chunks)} → {len(all_chunks)} total chunks ({layer_num} layers)")
+        logger.info(f"⏱️  TOTAL TIME: {overall_time:.2f}s")
+        
+        # Calculate summary stats
+        total_clusters_created = len(all_chunks) - len(valid_chunks)
+        avg_layer_time = overall_time / max(layer_num, 1)
+        logger.info(f"📊 SUMMARY: {total_clusters_created} summaries created, avg {avg_layer_time:.2f}s/layer")
+        
         self.layers_built = layer_num
         return all_chunks
 

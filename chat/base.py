@@ -108,17 +108,6 @@ class BaseChatModel(ABC):
              messages: List[Union[Message, Dict[str, str]]], 
              stream: bool = False,
              **kwargs) -> Union[ChatResponse, Generator[str, None, None]]:
-        """
-        Generate chat completion
-        
-        Args:
-            messages: List of messages
-            stream: Whether to stream response
-            **kwargs: Additional parameters
-            
-        Returns:
-            ChatResponse or Generator for streaming
-        """
         pass
     
     def _format_messages(self, messages: List[Union[Message, Dict[str, str]]]) -> List[Dict[str, str]]:

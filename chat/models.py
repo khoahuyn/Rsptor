@@ -14,23 +14,23 @@ class SmartChatResponse(BaseModel):
 
 class AssistantChatRequest(BaseModel):
     """Request for chatting with an AI assistant"""
-    query: str = Field(..., description="User query/message")
-    assistant_id: str = Field(..., description="Assistant ID to chat with")
-    session_id: Optional[str] = Field(None, description="Chat session ID (optional, will create if not provided)")
+    query: str = Field(...)
+    assistant_id: str = Field(...)
+    session_id: Optional[str] = Field(None)
     
     # Optional overrides (if not provided, use assistant's settings)
-    include_context: bool = Field(True, description="Whether to include conversation history")
-    max_context_messages: int = Field(10, description="Maximum previous messages to include in context")
+    include_context: bool = Field(True)
+    max_context_messages: int = Field(10)
 
 
 class AssistantChatResponse(BaseModel):
     """Response from assistant chat"""
-    answer: str = Field(..., description="Assistant's response")
-    session_id: str = Field(..., description="Chat session ID")
-    message_id: str = Field(..., description="Message ID of the response")
+    answer: str = Field(...)
+    session_id: str = Field(...)
+    message_id: str = Field(...)
     
     # Optional metadata
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata (tokens, retrieval info, etc.)")
+    metadata: Optional[Dict[str, Any]] = Field(None)
 
 
 class ChatMessage(BaseModel):
@@ -56,8 +56,8 @@ class ChatSessionDetail(BaseModel):
 
 class CreateChatSessionRequest(BaseModel):
     """Request to create a new chat session"""
-    assistant_id: str = Field(..., description="Assistant ID")
-    name: Optional[str] = Field(None, description="Session name (auto-generated if not provided)")
+    assistant_id: str = Field(...)
+    name: Optional[str] = Field(None)
 
 
 class CreateChatSessionResponse(BaseModel):

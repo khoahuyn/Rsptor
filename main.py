@@ -1,3 +1,10 @@
+import asyncio
+import sys
+
+# Fix Windows event loop for psycopg
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import logging
 import warnings
 from fastapi import FastAPI

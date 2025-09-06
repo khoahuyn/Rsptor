@@ -136,6 +136,19 @@ export const ChatArea = ({ className, selectedSession, messages, onSendMessage }
                       }`}>
                         {message.timestamp.toLocaleTimeString()}
                       </Text>
+
+                      {/* ✅ ADD: Simple Citation Format (from relevant excerpt) */}
+                      {message.type === 'assistant' && message.contextPassages && message.contextPassages.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-gray-200">
+                          <Text className="text-xs text-gray-600 italic">
+                            • {message.contextPassages[0].relevant_excerpt || 
+                                  (message.contextPassages[0].content.length > 120 
+                                    ? `${message.contextPassages[0].content.substring(0, 120)}...`
+                                    : message.contextPassages[0].content
+                                  )}
+                          </Text>
+                        </div>
+                      )}
                     </div>
 
                     {message.type === 'user' && (

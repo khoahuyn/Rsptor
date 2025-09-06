@@ -25,7 +25,6 @@ class BuildTree:
         random_seed: int = None,            
         max_levels: int = None,             
         llm_concurrency: int = None,        # Will use config default (RAGFlow inspired)
-        min_embed_interval: float = None    
     ):
 
         from config.raptor import get_raptor_settings
@@ -45,15 +44,10 @@ class BuildTree:
         self.max_levels = max_levels or self.raptor_config.max_levels
         self.llm_concurrency = llm_concurrency or llm_config.llm_concurrency
         self.layers_built = 0
-        self._last_embed_ts = 0.0  # For throttling
         
-        # Auto-detect min_embed_interval from provider config
-        provider_config = get_provider_config(self.embed_config)
-        self.min_embed_interval = min_embed_interval or provider_config.get("min_embed_interval", 0.5)
         
         # Log configuration being used
         logger.info(f"🎯 RAPTOR Config: clusters={self.max_clusters}, threshold={self.threshold}, tokens={self.max_token}")
-        logger.info(f"🎯 Build tree embedding interval: {self.min_embed_interval}s ({self.embed_config.active_provider})")
         
     def _get_optimal_clusters(self, embeddings: np.ndarray, random_state: int):
         """RAGFlow Line 78-87: BIC optimal cluster selection"""
@@ -103,19 +97,9 @@ class BuildTree:
     
     async def _embed_text(self, text: str) -> np.ndarray:
         """
-        Generate embedding for text with RAGFlow-style caching + throttling + timeout protection
+        Generate embedding for text with RAGFlow-style caching  + timeout protection
         """
-        import time
         import asyncio
-        
-        # Throttling: Ensure minimum interval between embedding calls (Raptor-service pattern)
-        now = time.perf_counter()
-        sleep_for = (self._last_embed_ts + self.min_embed_interval) - now
-        if sleep_for > 0:
-            logger.debug(f"⏱️ Throttling embedding call for {sleep_for:.1f}s")
-            await asyncio.sleep(sleep_for)
-        
-        self._last_embed_ts = time.perf_counter()
         
         # RAGFlow-style timeout protection (direct async call)
         try:
@@ -350,7 +334,6 @@ async def build_tree(
     random_seed: int = None,        
     max_levels: int = None,         
     llm_concurrency: int = None,    # Will use config default (RAGFlow inspired)
-    min_embed_interval: float = None,  
     callback: Optional[Callable] = None
 ) -> dict:
 
@@ -361,7 +344,6 @@ async def build_tree(
         random_seed=random_seed,             
         max_levels=max_levels,               
         llm_concurrency=llm_concurrency,     # User-specified parameter
-        min_embed_interval=min_embed_interval 
     )
     
     augmented_chunks = await tree_builder(chunks, callback)

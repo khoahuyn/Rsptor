@@ -124,7 +124,7 @@ class VoyageMultiKeyEmbedder:
         # Use token-aware rate limiting (3 RPM, 10K TPM)
         await rate_limiter.acquire(token_count)
         
-        print(f"🛡️ KEY {key_index}: Rate limited (3 RPM, 10K TPM) - tokens: {token_count}")
+        print(f" 🛡️ KEY {key_index}: Rate limited (3 RPM, 10K TPM) - tokens: {token_count}")
     
 
     

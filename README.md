@@ -26,6 +26,16 @@
 - ✅ **Multi-language Support** - Auto-detect and respond in Vietnamese, English
 - ✅ **Production Ready** - Async FastAPI, database migrations, comprehensive error handling
 
+### 🚀 **Performance Optimizations**
+
+**Retrieval Performance Improvements:**
+- ⚡ **Significantly faster chat responses** - Optimized retrieval pipeline
+- 🔥 **Cold start acceleration** - Persistent vector indexing for faster startup
+- 💯 **Advanced scoring optimization** - Multi-layer scoring with early termination
+- 🗃️ **Database bulk loading** - N+1 queries eliminated for consistent performance
+- ⚡ **Smart caching strategy** - Improved cache hit rates with intelligent normalization
+- 🚀 **Embedding bottleneck resolved** - Multi-key parallel processing
+
 ---
 
 ## 🏗️ Architecture
@@ -43,27 +53,40 @@ flowchart TD
         F --> G[Chat Service]
     end
     
+    subgraph "Optimizations"
+        H[Persistent Vector Index]
+        I[Smart Cache Layer]
+        J[Bulk DB Loading]
+    end
+    
     subgraph "Embeddings"
-        H[VoyageAI Multi-Key]
-        I[BGE-M3 Local]
+        K[VoyageAI Multi-Key]
+        L[BGE-M3 Local]
     end
     
     subgraph "Storage"
-        J[(Supabase DB)]
+        M[(Supabase DB)]
+        N[(Redis Cache)]
     end
     
     A -->|Parallel Upload| D
-    D --> J
-    E --> H
-    E --> I
-    G --> J
+    D --> M
+    E --> K
+    E --> L
+    G --> M
     C -->|Real-time Chat| G
+    
+    G --> H
+    G --> I
+    G --> J
+    I --> N
     
     style A fill:#e1f5fe
     style D fill:#fff3e0
     style G fill:#f3e5f5
     style H fill:#e8f5e8
-    style J fill:#f1f8e9
+    style I fill:#ffeb3b
+    style M fill:#f1f8e9
 ```
 
 ### Tech Stack
@@ -76,6 +99,8 @@ flowchart TD
   - **Alternative**: BGE-M3 via Ollama (local, cost-effective)
 - **LLM**: Gemini 1.5 Flash for chat + DeepSeek-V3 for summarization
 - **Clustering**: Gaussian Mixture Models + BIC optimization
+- **Caching**: Smart hash normalization + Redis persistence
+- **Vector Index**: FAISS with disk persistence
 
 ---
 
@@ -104,8 +129,7 @@ flowchart TD
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/ragflow/process` | POST | Upload & process documents (supports .md/.markdown) |
-| `/v1/ragflow/process-optimized` | POST | 🚀 **Optimized processing** (recommended) |
-| `/v1/ragflow/retrieve` | POST | Raw retrieval with chunks and scores |
+| `/v1/ragflow/retrieve` | POST | ⚡ **Optimized retrieval** with advanced scoring |
 
 ### 🗂️ Knowledge Base
 
@@ -123,6 +147,8 @@ flowchart TD
 
 - **Python 3.10+**
 - **Node.js 18+** (for frontend)
+- **uv** (fast Python package manager)
+- **pnpm** (efficient Node.js package manager)
 - **VoyageAI API Key** (recommended) or **Ollama** (for local BGE-M3)
 - **Supabase** account (for database)
 
@@ -132,8 +158,11 @@ flowchart TD
 git clone <your-repo>
 cd raptor_service
 
-# Install dependencies
-pip install -r requirements.txt
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies with uv
+uv pip install -r requirements.txt
 
 # Setup environment
 cp env.template .env
@@ -151,11 +180,14 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8081
 ```bash
 cd frontend
 
-# Install dependencies
-npm install
+# Install pnpm if not already installed
+npm install -g pnpm
+
+# Install dependencies with pnpm
+pnpm install
 
 # Start development server  
-npm run dev
+pnpm dev
 ```
 
 ### 4. Access Applications
@@ -241,6 +273,19 @@ DB_ENABLE_SSL=true
 DB_SSL_CERT_PATH=prod-ca-2021.crt
 SUPABASE_SSLROOTCERT=./database/prod-ca-2021.crt
 
+# === CACHING CONFIGURATION ===
+# Redis Cache (optional, for better performance)
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_TTL=300
+
+# Cache settings
+RETRIEVAL_CACHE_TTL_SECONDS=300
+RETRIEVAL_CACHE_MAX_ENTRIES=100
+EMBED_CACHE_TTL_SECONDS=86400
+
 # === OPTIONAL CONFIGURATION ===
 # Raptor tree building
 RAPTOR_MAX_CLUSTERS=64
@@ -311,10 +356,10 @@ curl -X POST "http://localhost:8081/v1/ai/assistants" \
   }'
 ```
 
-### Upload Documents (Optimized)
+### Upload Documents
 
 ```bash
-curl -X POST "http://localhost:8081/v1/ragflow/process-optimized" \
+curl -X POST "http://localhost:8081/v1/ragflow/process" \
   -F "file=@technical_guide.md" \
   -F "tenant_id=demo" \
   -F "kb_id=my_documents" \
@@ -347,6 +392,27 @@ curl -X POST "http://localhost:8081/v1/chat/sessions/{session_id}/chat" \
 ---
 
 ## 📊 Performance & Scalability
+
+### 🚀 **Performance Improvements**
+
+**Chat Response Experience:**
+```bash
+✅ Popular Questions:    Lightning fast responses with cache hits
+✅ Regular Chat:         Smooth, consistent conversation experience  
+✅ Cold Start:           Significantly faster server startup
+✅ Database Fallback:    Reliable performance without timeouts
+
+🎯 Overall: Much faster chat responses across all scenarios
+```
+
+**Retrieval Optimizations:**
+```bash
+✅ Embedding Bottleneck: RESOLVED   (Multi-key parallel processing)
+✅ Vector Index Rebuild: OPTIMIZED  (Persistent indexing for faster startup)
+✅ Scoring Complexity:   ENHANCED   (Early termination + preprocessing)
+✅ Database N+1 Queries: ELIMINATED (Bulk loading eliminates slow fallback)
+✅ Cache Strategy:       IMPROVED   (Smart normalization increases hit rates)
+```
 
 ### 🏆 RAPTOR Processing Performance
 
@@ -424,8 +490,8 @@ ollama pull bge-m3:latest
 **❌ Frontend Not Loading**
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 
 # Check if backend is running on port 8081
 ```
@@ -453,11 +519,12 @@ Check browser console for frontend issues and backend logs for API problems.
 2. Run database migrations: `alembic upgrade head`
 3. Deploy FastAPI with proper ASGI server (Gunicorn + Uvicorn)
 4. Configure reverse proxy (Nginx) for static files and API
+5. Setup Redis for production caching
 
 ### Frontend Deployment
 ```bash
 cd frontend
-npm run build
+pnpm build
 # Deploy dist/ folder to static hosting (Vercel, Netlify, etc.)
 ```
 
@@ -468,12 +535,14 @@ npm run build
 - [ ] Set up proper database user permissions
 - [ ] Regular backup of database and uploaded files
 - [ ] Rotate VoyageAI API keys regularly
+- [ ] Secure Redis instance with authentication
 
 ### Production Recommendations
 - **🏆 Use VoyageAI**: Best performance and reliability
 - **📊 Monitor Usage**: Track API usage and costs
 - **🔄 Load Balancing**: Consider multiple backend instances
 - **📈 Scaling**: Add more VoyageAI keys for higher throughput
+- **⚡ Redis Cache**: Enable for significantly improved cache hit rates
 
 ---
 
@@ -490,15 +559,15 @@ npm run build
 ### Development Setup
 
 ```bash
-# Backend development
-pip install -r requirements.txt
+# Backend development (using uv)
+uv pip install -r requirements.txt
 python setup_database.py
 uvicorn main:app --reload
 
-# Frontend development  
+# Frontend development (using pnpm)
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 
 # Run tests
 pytest tests/ -v
@@ -527,3 +596,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 *Built with ❤️ for intelligent document processing and AI assistant management*
 
 *🏆 Optimized for production with VoyageAI multi-key embedding and RAPTOR hierarchical trees*
+
+*⚡ **Significantly faster chat responses** with advanced retrieval optimizations*

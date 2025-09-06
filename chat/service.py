@@ -1,14 +1,14 @@
 import logging
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
-from chat.models import SmartChatRequest, SmartChatResponse, AssistantChatRequest, AssistantChatResponse
+from chat.models import AssistantChatRequest, AssistantChatResponse
 from chat.gemini_client import GeminiChat
 from config.chat import get_gemini_config
 from models.tree.retrieval import RetrievalRequest
 from models.database.message import MessageRole
 from api.ragflow_raptor import ragflow_retrieve
 from database.repository_factory import get_repositories
-from prompts.chat import RAG_SYSTEM_PROMPT
+from prompts.chat import RAG_SYSTEM_PROMPT, EXCERPT_EXTRACTION_PROMPT
 
 
 class ChatService:
@@ -24,63 +24,194 @@ class ChatService:
         )
         self.logger = logging.getLogger(__name__)
 
-    async def smart_chat(self, request: SmartChatRequest) -> SmartChatResponse:
-        """Simple API: query + retrieval + LLM generation in one call"""
+
+    async def _llm_extract_relevant_excerpts(self, content: str, answer: str) -> str:
+        """Use LLM to intelligently extract relevant excerpts from content based on answer"""
+        if not content or not answer:
+            return ""
+        
+        # Use extraction prompt from prompts/chat.py
+        extraction_prompt = EXCERPT_EXTRACTION_PROMPT.format(answer=answer, content=content)
+
         try:
-            # Step 1: Auto retrieval with RAPTOR
-            retrieval_request = RetrievalRequest(
-                query=request.query,
-                tenant_id=request.tenant_id,
-                kb_id=request.kb_id,
-                top_k=5  # Fixed reasonable value
+            # Simplified approach - use just the user message
+            user_message = f"You are an expert at extracting relevant information from documents. Return only the requested excerpts, no explanations.\n\n{extraction_prompt}"
+            
+            # Try the direct model approach to avoid chat wrapper issues
+            import google.generativeai as genai
+            
+            # Configure with API key if not already done
+            genai.configure(api_key=self.gemini_chat.api_key)
+            
+            # Configure the model directly 
+            model = genai.GenerativeModel(self.gemini_chat.model_name)
+            
+            # Generate response directly
+            response = model.generate_content(
+                user_message,
+                generation_config={
+                    "temperature": 0.1,
+                    "max_output_tokens": 200
+                }
             )
             
-            retrieval_result = await ragflow_retrieve(retrieval_request)
+            # Handle direct Gemini response
+            self.logger.debug(f"Direct Gemini response type: {type(response)}")
             
-            # Extract chunks from RetrievalResponse
-            if hasattr(retrieval_result, 'nodes'):
-                chunks = retrieval_result.nodes
-            elif hasattr(retrieval_result, 'retrieved_nodes'):
-                chunks = retrieval_result.retrieved_nodes
+            if hasattr(response, 'text') and response.text:
+                extracted_text = response.text
+                self.logger.debug(f"Using response.text: {extracted_text[:100]}...")
+            elif hasattr(response, 'content'):
+                extracted_text = response.content
+                self.logger.debug(f"Using response.content: {extracted_text[:100]}...")
             else:
-                chunks = []
+                # Fallback
+                extracted_text = str(response)
+                self.logger.debug(f"Fallback to str: {extracted_text[:100]}...")
             
-            # Step 2: Prepare context from chunks
-            if chunks:
-                context_text = "\n\n".join([
-                    f"[Source {i+1}]: {getattr(chunk, 'content', '')}"
-                    for i, chunk in enumerate(chunks[:5])  # Top 5 chunks
-                ])
-                
-                # Step 3: Generate answer with context using Gemini directly
-                prompt = f"{RAG_SYSTEM_PROMPT}\n\nContext:\n{context_text}\n\nQuestion: {request.query}"
-                
-                # Use Gemini generate_content directly to avoid generator issues
-                response = self.gemini_chat.model.generate_content(prompt)
-                answer = response.text
-            else:
-                # No context found - let LLM respond in user's language
-                prompt = f"{RAG_SYSTEM_PROMPT}\n\nUser query: {request.query}\n\nNo relevant information found in the knowledge base."
-                
-                # Use Gemini generate_content directly
-                response = self.gemini_chat.model.generate_content(prompt)
-                answer = response.text
+            # Clean up the response
+            cleaned_excerpt = extracted_text.strip()
             
-            return SmartChatResponse(answer=answer)
+            # Remove any unwanted prefixes that might be added by LLM
+            unwanted_prefixes = ["RELEVANT EXCERPTS:", "Excerpts:", "The relevant excerpts are:", "Based on the answer:"]
+            for prefix in unwanted_prefixes:
+                if cleaned_excerpt.startswith(prefix):
+                    cleaned_excerpt = cleaned_excerpt[len(prefix):].strip()
+            
+            # Fallback to simple extraction if LLM fails or returns empty
+            if not cleaned_excerpt or len(cleaned_excerpt) < 10:
+                # Simple fallback: take first 250 characters of content
+                return content[:250].strip() + "..." if len(content) > 250 else content.strip()
+            
+            # Limit length if needed
+            if len(cleaned_excerpt) > 300:
+                # Try to cut at sentence boundary
+                sentences = cleaned_excerpt.split('.')
+                result = ""
+                for sentence in sentences:
+                    if len(result + sentence + ".") <= 300:
+                        result += sentence + "."
+                    else:
+                        break
+                cleaned_excerpt = result.strip()
+            
+            return cleaned_excerpt
             
         except Exception as e:
-            self.logger.error(f"Smart chat failed: {e}")
-            # Let LLM handle error message in user's language
-            try:
-                prompt = f"{RAG_SYSTEM_PROMPT}\n\nUser query: {request.query}\n\nSystem error occurred."
-                response = self.gemini_chat.model.generate_content(prompt)
-                error_answer = response.text
-            except:
-                error_answer = "Sorry, there was a technical error. Please try again later."
-            return SmartChatResponse(answer=error_answer)
+            self.logger.warning(f"LLM excerpt extraction failed: {e} (response type: {type(response) if 'response' in locals() else 'unknown'}), falling back to smart extraction")
+            
+            # Smart fallback: find sentences containing key information
+            return self._smart_fallback_extraction(content, answer)
+
+    def _smart_fallback_extraction(self, content: str, answer: str) -> str:
+        """Smart fallback extraction when LLM fails - find relevant sentences"""
+        try:
+            # Extract potential keywords from answer
+            answer_keywords = []
+            if answer:
+                # Simple keyword extraction from answer
+                import re
+                words = re.findall(r'\b\w+\b', answer.lower())
+                # Filter meaningful words (>2 chars, not common stop words)
+                stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'was', 'is', 'are', 'were'}
+                answer_keywords = [w for w in words if len(w) > 2 and w not in stop_words]
+            
+            # Split content into sentences
+            sentences = re.split(r'[.!?]+', content)
+            sentences = [s.strip() for s in sentences if len(s.strip()) > 20]  # Filter very short sentences
+            
+            if not sentences:
+                return content[:250].strip() + "..." if len(content) > 250 else content.strip()
+            
+            # Score sentences based on keyword matches
+            scored_sentences = []
+            for sentence in sentences:
+                sentence_lower = sentence.lower()
+                score = 0
+                
+                # Score based on answer keywords
+                for keyword in answer_keywords:
+                    if keyword in sentence_lower:
+                        score += 2  # Higher weight for answer keywords
+                
+                # Score based on common important keywords
+                important_keywords = ['championship', 'won', 'winner', 'defeated', 'final', 'champion', '2017']
+                for keyword in important_keywords:
+                    if keyword in sentence_lower:
+                        score += 1
+                
+                scored_sentences.append((score, sentence))
+            
+            # Sort by score and get best sentences
+            scored_sentences.sort(reverse=True, key=lambda x: x[0])
+            
+            # Return best sentence(s)
+            if scored_sentences and scored_sentences[0][0] > 0:
+                # Take top sentence(s) that have some relevance
+                best_sentences = []
+                max_length = 300
+                current_length = 0
+                
+                for score, sentence in scored_sentences:
+                    if score <= 0:
+                        break
+                    if current_length + len(sentence) <= max_length:
+                        best_sentences.append(sentence)
+                        current_length += len(sentence)
+                    else:
+                        break
+                
+                if best_sentences:
+                    return ". ".join(best_sentences).strip() + "."
+            
+            # Fallback: return first sentence if it's informative
+            if sentences and len(sentences[0]) > 30:
+                return sentences[0].strip() + "."
+            
+            # Final fallback: first 250 chars
+            return content[:250].strip() + "..." if len(content) > 250 else content.strip()
+            
+        except Exception as fallback_error:
+            self.logger.warning(f"Smart fallback extraction failed: {fallback_error}, using simple fallback")
+            return content[:250].strip() + "..." if len(content) > 250 else content.strip()
+
+    async def _format_context_passages(self, chunks, answer: str = "") -> List[Dict[str, Any]]:
+        """Format chunks as context passages for frontend citations"""
+        if not chunks:
+            return []
+        
+        # Only take the top chunk (highest similarity)
+        top_chunk = chunks[0] if chunks else None
+        if not top_chunk:
+            return []
+        
+        # Extract relevant excerpt(s) using LLM - much smarter than hardcoded logic
+        content = top_chunk.content
+        relevant_excerpt = await self._llm_extract_relevant_excerpts(content, answer)
+        
+        passage = {
+            "content": content,  # Keep full content for potential future use
+            "relevant_excerpt": relevant_excerpt,  # ✅ ADD: Smart excerpt
+            "similarity_score": top_chunk.similarity_score
+        }
+        
+        # Add metadata if available
+        if hasattr(top_chunk, 'meta') and top_chunk.meta:
+            passage.update({
+                "doc_id": top_chunk.meta.get('doc_id'),
+                "chunk_index": top_chunk.meta.get('chunk_index'),
+                "owner_type": top_chunk.meta.get('owner_type')
+            })
+        
+        return [passage]  # ✅ Return only 1 passage
+
     
     async def assistant_chat(self, request: AssistantChatRequest) -> AssistantChatResponse:
         """Chat with an AI assistant, save conversation to database"""
+        import time
+        start_time = time.time()
+        chat_timings = {}  # Track chat performance
+        
         try:
             async with get_repositories() as repos:
                 # Step 1: Get assistant and verify it exists
@@ -121,6 +252,7 @@ class ChatService:
                     )
                 
                 # Step 5: Retrieve relevant documents using assistant's KB
+                t_retrieval = time.time()
                 retrieval_request = RetrievalRequest(
                     query=request.query,
                     tenant_id=assistant.tenant_id,
@@ -129,6 +261,7 @@ class ChatService:
                 )
                 
                 retrieval_result = await ragflow_retrieve(retrieval_request)
+                chat_timings["retrieval"] = (time.time() - t_retrieval) * 1000
                 
                 # Extract chunks
                 if hasattr(retrieval_result, 'nodes'):
@@ -137,6 +270,7 @@ class ChatService:
                     chunks = retrieval_result.retrieved_nodes
                 else:
                     chunks = []
+                
                 
                 # Step 6: Prepare context for LLM
                 system_prompt = assistant.system_prompt or RAG_SYSTEM_PROMPT
@@ -151,7 +285,7 @@ class ChatService:
                 # Add retrieved knowledge
                 if chunks:
                     retrieved_context = "\n\n".join([
-                        f"[Source {i+1}]: {getattr(chunk, 'content', '')}"
+                        f"[Source {i+1}]: {chunk.content}"
                         for i, chunk in enumerate(chunks[:5])
                     ])
                     context_sections.append(f"Knowledge Base Context:\n{retrieved_context}")
@@ -172,8 +306,10 @@ class ChatService:
                     # Configure Gemini with assistant settings
                     self.gemini_chat.temperature = model_settings.get("temperature", self.gemini_config.temperature)
                     
+                    t_llm = time.time()
                     response = self.gemini_chat.model.generate_content(prompt)
                     answer = response.text
+                    chat_timings["llm_response"] = (time.time() - t_llm) * 1000
                     
                     # Extract token usage if available
                     input_tokens = len(prompt.split()) * 1.3  # Rough estimate
@@ -195,17 +331,30 @@ class ChatService:
                         "model": model_settings.get("model", "gemini-1.5-flash"),
                         "temperature": model_settings.get("temperature", 0.7),
                         "chunks_used": len(chunks),
-                        "context_length": len(full_context)
+                        "context_length": len(full_context),
+                        # ✅ ADD: Store context passages for frontend retrieval
+                        "context_passages": await self._format_context_passages(chunks, answer)
                     }
                 )
                 
                 # Step 9: Update session stats (count both user + assistant messages)
                 await repos.chat_repo.increment_message_count(session_id, count=2)
                 
+                # Calculate total chat time
+                total_time = (time.time() - start_time) * 1000
+                chat_timings["total"] = total_time
+                
+                # Log performance breakdown
+                self.logger.info(f"🚀 Chat Performance Breakdown:")
+                self.logger.info(f"   • Retrieval: {chat_timings.get('retrieval', 0):.1f}ms")
+                self.logger.info(f"   • LLM Response: {chat_timings.get('llm_response', 0):.1f}ms") 
+                self.logger.info(f"   • Total: {total_time:.1f}ms")
+                
                 return AssistantChatResponse(
                     answer=answer,
                     session_id=session_id,
                     message_id=assistant_message.message_id,
+                    context_passages=await self._format_context_passages(chunks, answer),  
                     metadata={
                         "tokens": {
                             "input": int(input_tokens),
@@ -215,7 +364,8 @@ class ChatService:
                         "retrieval": {
                             "chunks_found": len(chunks),
                             "context_included": bool(conversation_context)
-                        }
+                        },
+                        "performance": chat_timings  # 🚀 ADD: Performance metrics
                     }
                 )
                 

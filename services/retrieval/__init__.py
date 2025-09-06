@@ -10,12 +10,13 @@ from .retrieval_helper import (
     calculate_advanced_similarity,
     calculate_final_score,
     build_vector_index,
-    convert_vector_results_to_chunks
+    convert_vector_results_to_chunks,
+    preprocess_query_for_scoring
 )
 
 # Supporting services
 from .universal_query_enhancer import universal_query_enhancer  
-from .vector_index import get_vector_index, clear_vector_index
+from .persistent_vector_index import get_persistent_vector_index, clear_persistent_vector_index
 
 # Configuration
 from config.retrieval import get_retrieval_config, set_retrieval_config, RetrievalConfig
@@ -31,13 +32,14 @@ __all__ = [
     "calculate_final_score",
     "build_vector_index",
     "convert_vector_results_to_chunks",
+    "preprocess_query_for_scoring",
     
     # Query enhancement
     "universal_query_enhancer",
     
-    # Vector indexing
-    "get_vector_index",
-    "clear_vector_index",
+    # Vector indexing  
+    "get_persistent_vector_index",
+    "clear_persistent_vector_index",
     
     # Configuration
     "get_retrieval_config",

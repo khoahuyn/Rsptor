@@ -1,10 +1,3 @@
-#
-# Chat module for RAPTOR service
-# Inspired by RAGFlow's LLM architecture
-#
-
-import importlib
-import inspect
 from typing import Dict, Type
 
 # Model registries

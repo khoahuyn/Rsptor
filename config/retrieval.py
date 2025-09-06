@@ -26,6 +26,8 @@ class RetrievalConfig(BaseModel):
     # Token estimation
     tokens_per_word: float = Field(1.3)
 
+    early_exit_threshold: float = Field(0.4)
+
 
 # Global retrieval configuration
 _retrieval_config: Optional[RetrievalConfig] = None

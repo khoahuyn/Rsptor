@@ -2,26 +2,15 @@ from fastapi import APIRouter, HTTPException, Depends, Path
 from typing import List
 
 from chat.models import (
-    SmartChatRequest, SmartChatResponse, AssistantChatRequest, AssistantChatResponse,
+    AssistantChatRequest, AssistantChatResponse,
     CreateChatSessionRequest, CreateChatSessionResponse, ChatSessionDetail, ChatMessage
 )
 from chat.service import get_chat_service, ChatService
 from database.repository_factory import get_repositories
 
 
-router = APIRouter(prefix="/v1/chat", tags=["Smart Chat"])
+router = APIRouter(prefix="/v1/chat", tags=["Assistant Chat"])
 
-
-@router.post("/smart", response_model=SmartChatResponse)
-async def smart_chat(
-    request: SmartChatRequest,
-    chat_service: ChatService = Depends(get_chat_service)
-) -> SmartChatResponse:
-    """Basic smart chat without conversation history"""
-    try:
-        return await chat_service.smart_chat(request)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/assistant", response_model=AssistantChatResponse)

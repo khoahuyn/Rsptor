@@ -2,16 +2,6 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 
-class SmartChatRequest(BaseModel):
-    query: str
-    tenant_id: str
-    kb_id: str
-
-
-class SmartChatResponse(BaseModel):
-    answer: str
-
-
 class AssistantChatRequest(BaseModel):
     """Request for chatting with an AI assistant"""
     query: str = Field(...)
@@ -28,6 +18,9 @@ class AssistantChatResponse(BaseModel):
     answer: str = Field(...)
     session_id: str = Field(...)
     message_id: str = Field(...)
+    
+    # ✅ ADD: Context passages for citations (Raptor-service style)
+    context_passages: Optional[List[Dict[str, Any]]] = Field(None)
     
     # Optional metadata
     metadata: Optional[Dict[str, Any]] = Field(None)

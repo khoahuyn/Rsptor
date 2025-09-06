@@ -30,10 +30,19 @@ export interface ChatSession {
 
 export interface Message {
   id: string
-  type: 'user' | 'assistant'
+  type: 'user' | 'assistant' | 'system'  // ✅ ADD: Include 'system' type
   content: string
   timestamp: Date
   sessionId: string
+  // ✅ ADD: Context passages for citations (Raptor-service style)
+  contextPassages?: Array<{
+    content: string
+    relevant_excerpt?: string  // ✅ ADD: Smart excerpt for display
+    similarity_score?: number
+    doc_id?: string
+    chunk_index?: number
+    owner_type?: string
+  }>
 }
 
 export interface UploadedFile {
@@ -67,7 +76,9 @@ export const useChatState = () => {
           type: apiMsg.role as 'user' | 'assistant' | 'system',
           content: apiMsg.content,
           timestamp: new Date(apiMsg.created_at),
-          sessionId: session.id
+          sessionId: session.id,
+          // ✅ ADD: Include context passages from stored messages
+          contextPassages: apiMsg.extra_metadata?.context_passages || []
         }))
         
         setMessages(localMessages)

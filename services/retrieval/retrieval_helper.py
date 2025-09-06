@@ -1,16 +1,75 @@
 import logging
 import numpy as np
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Tuple
 from dataclasses import dataclass
 from sqlalchemy import select
 
 from config.retrieval import get_retrieval_config
-from models.database.embedding import EmbeddingORM, EmbeddingOwnerType
+from models.database.embedding import EmbeddingORM
 from models.database.document import ChunkORM
 from .universal_query_enhancer import universal_query_enhancer
-from .vector_index import get_vector_index
+
 
 logger = logging.getLogger("retrieval_helper")
+
+
+def _calculate_position_bonus(chunk_meta: Dict, config) -> float:
+    """Calculate position bonus for chunk"""
+    position_bonus = 0.0
+    chunk_index = chunk_meta.get('chunk_index', 0)
+    if chunk_index < config.position_bonus_chunks:
+        position_bonus = config.max_position_bonus * (config.position_bonus_chunks - chunk_index) / config.position_bonus_chunks
+    return position_bonus
+
+
+def _calculate_length_bonus(content: str, config) -> float:
+    """Calculate content length bonus"""
+    length_bonus = 0.0
+    content_len = len(content)
+    min_length = int(config.optimal_content_length * 0.25)  # 25% of optimal
+    max_length = int(config.optimal_content_length * 2.5)   # 250% of optimal
+    
+    if min_length <= content_len <= max_length:
+        # Peak bonus at optimal_length, taper off at extremes
+        distance = abs(content_len - config.optimal_content_length)
+        length_bonus = max(0, config.max_length_bonus * (1 - distance / config.optimal_content_length))
+    return length_bonus
+
+
+def _calculate_quick_score(vector_similarity: float, content: str, chunk_meta: Dict, config) -> Dict[str, float]:
+    """Quick scoring for early termination (skip expensive calculations)"""
+    return {
+        'text_similarity': 0.0,  # Skip expensive text similarity
+        'vector_similarity': vector_similarity,
+        'keyword_bonus': 0.0,   # Skip expensive keyword matching
+        'position_bonus': _calculate_position_bonus(chunk_meta, config),
+        'length_bonus': _calculate_length_bonus(content, config)
+    }
+
+
+def preprocess_query_for_scoring(query_tokens: List[str], config) -> Dict:
+    """Preprocess query once per request instead of per chunk (60x optimization)"""
+    if not query_tokens:
+        return {
+            'valid_tokens': [],
+            'token_weights': {},
+            'tokens_count': 0
+        }
+        
+    valid_tokens = []
+    token_weights = {}
+    
+    for token in query_tokens:
+        if len(token) >= config.min_keyword_length:
+            valid_tokens.append(token)
+            weight = min(2.0, len(token) / 4.0)  # Max 2.0 weight
+            token_weights[token] = weight
+            
+    return {
+        'valid_tokens': valid_tokens,
+        'token_weights': token_weights,
+        'tokens_count': len(valid_tokens)
+    }
 
 
 @dataclass
@@ -29,7 +88,9 @@ def calculate_advanced_similarity(
     content: str,
     query_vector: List[float],
     doc_vector: List[float],
-    chunk_meta: Dict
+    chunk_meta: Dict,
+    vector_similarity: float = None,
+    preprocessed_query: Dict = None
 ) -> Dict[str, float]:
     """Calculate multiple similarity metrics - Universal RAGFlow approach"""
     config = get_retrieval_config()
@@ -39,20 +100,39 @@ def calculate_advanced_similarity(
     text_similarity = universal_query_enhancer.calculate_text_similarity(query_tokens, content_tokens)
     
     # 2. Vector cosine similarity  
-    try:
-        q_vec = np.array(query_vector)
-        d_vec = np.array(doc_vector)
+    if vector_similarity is None:
+    # Fallback calculation (for non-FAISS path)
+        try:
+            q_vec = np.array(query_vector)
+            d_vec = np.array(doc_vector)
         
-        if len(q_vec) == len(d_vec) and np.linalg.norm(q_vec) > 0 and np.linalg.norm(d_vec) > 0:
-            vector_similarity = float(np.dot(q_vec, d_vec) / (np.linalg.norm(q_vec) * np.linalg.norm(d_vec)))
-        else:
+            if len(q_vec) == len(d_vec) and np.linalg.norm(q_vec) > 0 and np.linalg.norm(d_vec) > 0:
+                vector_similarity = float(np.dot(q_vec, d_vec) / (np.linalg.norm(q_vec) * np.linalg.norm(d_vec)))
+            else:
+                vector_similarity = 0.0
+        except:
             vector_similarity = 0.0
-    except:
-        vector_similarity = 0.0
     
-    # 3. Universal keyword density (simplified approach)
+    # 3. Universal keyword density (optimized with preprocessing)
     keyword_bonus = 0.0
-    if query_tokens:
+    if preprocessed_query and preprocessed_query['valid_tokens']:
+        # Use preprocessed query (optimized path - no redundant calculations!)
+        content_lower = content.lower()
+        matched_keywords = 0
+        
+        for token in preprocessed_query['valid_tokens']:
+            if token in content_lower:
+                weight = preprocessed_query['token_weights'][token]  # Already computed!
+                keyword_bonus += 0.02 * weight  # Base 0.02 bonus
+                matched_keywords += 1
+        
+        # Normalize and cap
+        if matched_keywords > 0:
+            keyword_bonus = min(config.max_keyword_bonus, 
+                              keyword_bonus * (matched_keywords / preprocessed_query['tokens_count']))
+    
+    elif query_tokens:
+        # Fallback to original logic (backward compatibility)
         content_lower = content.lower()
         matched_keywords = 0
         for token in query_tokens:
@@ -66,23 +146,17 @@ def calculate_advanced_similarity(
         if matched_keywords > 0:
             keyword_bonus = min(config.max_keyword_bonus, keyword_bonus * (matched_keywords / len(query_tokens)))
     
+    # Early termination for low-similarity chunks (skip expensive calculations)
+    if vector_similarity is not None and vector_similarity < config.early_exit_threshold:
+        return _calculate_quick_score(vector_similarity, content, chunk_meta, config)
+    
     # 4. Position bonus (universal - early chunks often more important)
-    position_bonus = 0.0
-    chunk_index = chunk_meta.get('chunk_index', 0)
-    if chunk_index < config.position_bonus_chunks:
-        position_bonus = config.max_position_bonus * (config.position_bonus_chunks - chunk_index) / config.position_bonus_chunks
+    position_bonus = _calculate_position_bonus(chunk_meta, config)
     
     # 5. Content length bonus (auto range: optimal ±75%)
-    length_bonus = 0.0
-    content_len = len(content)
-    min_length = int(config.optimal_content_length * 0.25)  # 25% of optimal
-    max_length = int(config.optimal_content_length * 2.5)   # 250% of optimal
+    length_bonus = _calculate_length_bonus(content, config)
     
-    if min_length <= content_len <= max_length:
-        # Peak bonus at optimal_length, taper off at extremes
-        distance = abs(content_len - config.optimal_content_length)
-        length_bonus = max(0, config.max_length_bonus * (1 - distance / config.optimal_content_length))
-    
+    # Return full calculation results
     return {
         'text_similarity': text_similarity,
         'vector_similarity': vector_similarity,
@@ -107,33 +181,18 @@ def calculate_final_score(similarities: Dict[str, float], chunk_meta: Dict) -> f
                   similarities['position_bonus'] + 
                   similarities['length_bonus'])
     
-    # Owner type boost
-    owner_type = chunk_meta.get('owner_type', 'chunk')
-    if owner_type == 'summary':
-        final_score += config.summary_type_bonus
-    elif owner_type == 'root':
-        final_score += config.root_type_bonus
-    
     return min(final_score, 1.0)  # Cap at 1.0
 
 
 async def build_vector_index(tenant_id: str, kb_id: str, repos, embed_config) -> bool:
-    """Build or update vector index for fast search"""
+    """Build or load persistent vector index for fast search"""
     try:
-        index = get_vector_index(kb_id, embed_config.embed_dimension)
+        from .persistent_vector_index import create_persistent_index, persistent_indexes
         
-        # Check if index needs rebuilding
-        existing_size = index.size()
-
-        if existing_size > 0:
-            logger.info(f"📦 Using existing vector index with {existing_size} vectors")
-            return True
-        else:
-            logger.info(f"🆕 No existing index found (size={existing_size}), building new one...")
+        # Create persistent index instead of regular one
+        persistent_index = create_persistent_index(kb_id, embed_config.embed_dimension)
         
-        logger.info(f"🔧 Building vector index for KB {kb_id}...")
-        
-        # Get all embeddings
+        # Get current embedding count from DB first
         stmt = select(EmbeddingORM).where(
             EmbeddingORM.tenant_id == tenant_id,
             EmbeddingORM.kb_id == kb_id
@@ -141,8 +200,29 @@ async def build_vector_index(tenant_id: str, kb_id: str, repos, embed_config) ->
         
         result = await repos.session.execute(stmt)
         embeddings = result.scalars().all()
+        current_count = len(embeddings)
         
-        logger.info(f"🔍 Found {len(embeddings)} embeddings in DB for index building")
+        logger.info(f"🔍 Found {current_count} embeddings in DB")
+        
+        # Try to load existing persistent index
+        if persistent_index.load_from_disk():
+            # Check if index is still valid
+            if not persistent_index.is_index_stale(current_count):
+                logger.info(f"📁 Using persistent index: {len(persistent_index.chunk_ids)} vectors")
+                
+                # Register in global persistent_indexes dict
+                key = f"{kb_id}_{embed_config.embed_dimension}"
+                persistent_indexes[key] = persistent_index
+                
+                return True
+            else:
+                logger.info(f"🔄 Persistent index stale, rebuilding...")
+        else:
+            logger.info(f"🆕 No persistent index found, building new one...")
+        
+        logger.info(f"🔧 Building persistent vector index for KB {kb_id}...")
+        
+        logger.info(f"🔍 Processing {len(embeddings)} embeddings for index building")
         
         vectors = []
         chunk_ids = []
@@ -167,18 +247,29 @@ async def build_vector_index(tenant_id: str, kb_id: str, repos, embed_config) ->
             if i < 3:  # Log first few for debugging
                 logger.debug(f"✅ Added vector {i}: {emb.owner_type.value} {emb.owner_id}, dim={len(emb.vector)}")
         
-        logger.info(f"📦 Prepared {len(vectors)} valid vectors for FAISS index")
+        logger.info(f"📦 Prepared {len(vectors)} valid vectors for persistent index")
         
         if vectors:
-            index.add_vectors(vectors, chunk_ids, metadata)
+            persistent_index.add_vectors(vectors, chunk_ids, metadata)
             logger.info(f"✅ Vector index built: {len(vectors)} vectors")
+            
+            # Save to disk for persistence
+            if persistent_index.save_to_disk():
+                logger.info(f"💾 Persistent index saved to disk")
+            else:
+                logger.warning(f"⚠️ Failed to save persistent index to disk")
+            
+            # Register in global persistent_indexes dict
+            key = f"{kb_id}_{embed_config.embed_dimension}"
+            persistent_indexes[key] = persistent_index
+            
             return True
         else:
             logger.warning("❌ No vectors found to build index - all embeddings invalid")
             return False
             
     except Exception as e:
-        logger.error(f"Error building vector index: {e}")
+        logger.error(f"Error building persistent vector index: {e}")
         return False
 
 
@@ -192,10 +283,15 @@ async def convert_vector_results_to_chunks(
     """
     Convert FAISS vector search results to scored chunks format
     Handles all 3 owner_types: chunk, summary, root
-    OPTIMIZED: Batch load all chunks in single DB query
+    OPTIMIZED: Batch load all chunks in single DB query + query preprocessing
     """
     if not vector_results:
         return []
+    
+    # Step 0: Preprocess query ONCE per request (instead of 60 times per chunk!)
+    config = get_retrieval_config()
+    preprocessed_query = preprocess_query_for_scoring(query_tokens, config)
+    logger.debug(f"🚀 Query preprocessed: {len(preprocessed_query['valid_tokens'])} valid tokens")
         
     # Step 1: Batch load all chunks in single query (60 chunks → 1 DB call!)
     chunk_ids = [chunk_id for chunk_id, _, _ in vector_results]
@@ -222,7 +318,7 @@ async def convert_vector_results_to_chunks(
             # Get owner_type from metadata
             owner_type = metadata.get('owner_type', 'chunk')
             
-            # Calculate advanced similarities (same as database path)
+            # Calculate advanced similarities (optimized with preprocessed query)
             similarities = calculate_advanced_similarity(
                 query_tokens,
                 chunk.content,
@@ -231,7 +327,9 @@ async def convert_vector_results_to_chunks(
                 {
                     'chunk_index': chunk.chunk_index, 
                     'owner_type': owner_type
-                }
+                },
+                vector_similarity=vector_similarity,
+                preprocessed_query=preprocessed_query  # ← OPTIMIZATION: Use preprocessed query!
             )
             
             # Override vector similarity from FAISS (more accurate)

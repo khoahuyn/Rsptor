@@ -13,6 +13,15 @@ export interface ChatResponse {
   answer: string
   session_id: string
   message_id: string
+  // ✅ ADD: Context passages for citations (matching backend response)
+  context_passages?: Array<{
+    content: string
+    relevant_excerpt?: string  // ✅ ADD: Smart excerpt for display
+    similarity_score?: number
+    doc_id?: string
+    chunk_index?: number
+    owner_type?: string
+  }>
   metadata?: {
     tokens?: {
       input: number
@@ -129,19 +138,7 @@ class ChatService {
     })
   }
 
-  /**
-   * Legacy smart chat (without session management)
-   */
-  async smartChat(query: string, tenantId: string, kbId: string): Promise<{ answer: string }> {
-    return apiRequest<{ answer: string }>('/chat/smart', {
-      method: 'POST',
-      body: JSON.stringify({
-        query,
-        tenant_id: tenantId,
-        kb_id: kbId,
-      }),
-    })
-  }
+  
 }
 
 export const chatService = new ChatService()

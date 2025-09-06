@@ -118,7 +118,9 @@ export const ChatPageTemplate = ({ className }: ChatPageTemplateProps) => {
         type: 'assistant',
         content: response.answer,
         timestamp: new Date(),
-        sessionId: selectedSession.id
+        sessionId: selectedSession.id,
+        // ✅ ADD: Context passages for frontend citations
+        contextPassages: response.context_passages || []
       })
 
       // Optional: Handle file uploads if provided

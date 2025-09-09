@@ -26,7 +26,7 @@ class GeminiChat(BaseChatModel):
             "max_output_tokens": self.max_tokens,
         }
         
-        # Safety settings - disable để test dễ hơn
+        # Safety settings - disable for easier testing
         safety_settings = {
             HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
             HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,

@@ -80,7 +80,7 @@ class KnowledgeBaseORM(Base):
 
 
 class ChatSessionORM(Base):
-    """Chat sessions linked to Knowledge Bases (như RAGFlow)"""
+    """Chat sessions linked to Knowledge Bases"""
     __tablename__ = "chat_sessions"
     
     session_id: Mapped[str] = mapped_column(String, primary_key=True)

@@ -1,4 +1,5 @@
 import time
+import asyncio
 import requests
 from typing import List, Dict
 from exceptions import LLMError
@@ -97,6 +98,28 @@ class FPTCloudClient:
             })()]
         })()
 
+
+async def call_fpt_api_async(
+    base_url: str, 
+    api_key: str, 
+    model: str, 
+    messages: List[Dict[str, str]], 
+    max_tokens: int = 1024,
+    temperature: float = 0.7,
+    max_retries: int = 2,
+    timeout: int = 60
+) -> str:
+    """
+    Async wrapper for FPT Cloud API - runs sync call in thread executor
+    """
+    loop = asyncio.get_event_loop()
+    
+    # Run sync function in thread executor to avoid blocking
+    return await loop.run_in_executor(
+        None, 
+        call_fpt_api,
+        base_url, api_key, model, messages, max_tokens, temperature, max_retries, timeout
+    )
 
 def create_fpt_client(base_url: str, api_key: str) -> FPTCloudClient:
     """Factory function to create FPT Cloud client"""

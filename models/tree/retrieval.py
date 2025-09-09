@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 class RetrievalRequest(BaseModel):
@@ -42,6 +42,12 @@ class RetrievalResponse(BaseModel):
     """Response containing retrieved nodes and stats"""
     retrieved_nodes: List[RetrievedNode] = Field(...)
     retrieval_stats: RetrievalStats = Field(...)
+    
+    # Deep Research metadata (optional)
+    research_metadata: Optional[Dict[str, Any]] = Field(None)
+    
+    class Config:
+        extra = "allow"  # Allow additional fields for flexibility
 
 
 

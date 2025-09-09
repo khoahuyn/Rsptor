@@ -1,29 +1,9 @@
+# RAGFlow-style RAPTOR Summary Prompt - Simple & Direct (Testing)
 RAPTOR_SUMMARY_PROMPT = (
-    "Summarize the content below into a clear, comprehensive paragraph.\n"
-    "\n"
-    "LANGUAGE REQUIREMENT:\n"
-    "IMPORTANT: Respond in the SAME language as the input content.\n"
-    "- Preserve the original language throughout your response\n"
-    "\n"
-    "CONTENT REQUIREMENTS:\n"
-    "IMPORTANT: Create a NEW high-level summary. Do NOT copy sentences from the low-level summary.\n"
-    "If input contains summaries from lower levels, create a MORE ABSTRACT overview.\n"
-    "\n"
-    "ABSTRACTION RULES:\n"
-    "- Identify THEMES and PATTERNS across inputs, not specific details\n"
-    "- Group related concepts into broader categories\n"
-    "- Focus on WHAT TYPE of content, not exact descriptions\n"
-    "- Represent all major input areas, but at a higher conceptual level\n"
-    "\n"
-    "Create a comprehensive summary paragraph that:\n"
-    "- Starts with the main topic or theme\n"
-    "- Covers all major themes and concepts\n"
-    "- Maintains natural, readable flow\n"
-    "- Preserves important details and terminology\n"
-    "- Ends with a brief conclusion if appropriate\n"
-    "\n"
-    "Input format: \"[ID] content text\"\n"
-    "Output: A single, well-structured summary paragraph in plain text (no JSON, no bullets, no special formatting)\n"
+    "Please summarize the following content. "
+    "Be careful with the numbers, do not make things up. "
+    "Provide a clear, comprehensive summary paragraph."
 )
+
 
 

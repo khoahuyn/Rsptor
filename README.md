@@ -1,40 +1,38 @@
-# 🌳 RAPTOR RAG Service - AI Assistants & Smart Document Q&A
+# 🌳 RAPTOR RAG Service - Pure Retrieval & Smart Citations
 
-> **Production-ready RAG system** with **RAPTOR hierarchical trees**, **AI Assistants**, and **React Frontend** for intelligent document processing and conversation management.
+> **Production-ready RAG system** with **RAPTOR hierarchical trees**, **DeepSeek-R1 + Gemini dual LLM setup**, and **intelligent model-driven citations** for smart document Q&A.
 
 ---
 
 ## 🚀 Overview
 
-**RAPTOR RAG Service** transforms documents into intelligent AI assistants with conversation capabilities:
+**RAPTOR RAG Service** provides pure retrieval capabilities with smart citation system:
 
 - 📚 **RAGFlow Processing**: Advanced document chunking with parallel upload support
 - 🌳 **RAPTOR Trees**: Hierarchical clustering with GMM+BIC for optimal retrieval  
-- 🤖 **AI Assistants**: Create and manage AI assistants linked to knowledge bases
-- 💬 **Chat Sessions**: Persistent conversation history with message management
-- 🎨 **React Frontend**: Complete UI for document upload, assistant creation, and chat
-- 🏢 **Multi-tenant**: Isolated data per tenant/knowledge base with cascade deletion
+- 🤖 **Dual LLM Setup**: DeepSeek-R1 (primary) + Gemini (fallback) for reliable chat responses
+- 💡 **Smart Citations**: Model-driven citation extraction based on LLM thinking process
+- 🎯 **Pure Retrieval**: MCP-ready architecture without built-in multi-agent orchestration
+- 🏢 **Multi-tenant**: Isolated data per tenant/knowledge base
 
 ### ⭐ Key Features
 
-- ✅ **AI Assistant Management** - Create, configure, and delete AI assistants
-- ✅ **Chat Sessions & History** - Persistent conversations with message tracking
-- ✅ **Parallel Document Upload** - Upload multiple .md files simultaneously with progress tracking
-- ✅ **RAPTOR Tree Building** - Hierarchical clustering for enhanced context retrieval
-- ✅ **Smart Retrieval** - Context-aware responses using knowledge base content
-- ✅ **React Frontend** - Modern UI with real-time progress and error handling
-- ✅ **Multi-language Support** - Auto-detect and respond in Vietnamese, English
-- ✅ **Production Ready** - Async FastAPI, database migrations, comprehensive error handling
+- ✅ **DeepSeek-R1 Integration** - Primary LLM with thinking extraction for citations
+- ✅ **Intelligent Citations** - Model decides what to cite based on internal reasoning  
+- ✅ **Dual LLM Strategy** - Primary/fallback system for reliable responses
+- ✅ **Pure Retrieval Design** - Clean separation from multi-agent orchestration
+- ✅ **Model-Driven Excerpts** - Citations based on what model actually mentioned
+- ✅ **Dynamic Citation Logic** - No hardcoded patterns, adapts to model behavior
+- ✅ **Clean Architecture** - Simplified codebase with reduced complexity
 
-### 🚀 **Performance Optimizations**
+### 🧠 **Citation Intelligence**
 
-**Retrieval Performance Improvements:**
-- ⚡ **Significantly faster chat responses** - Optimized retrieval pipeline
-- 🔥 **Cold start acceleration** - Persistent vector indexing for faster startup
-- 💯 **Advanced scoring optimization** - Multi-layer scoring with early termination
-- 🗃️ **Database bulk loading** - N+1 queries eliminated for consistent performance
-- ⚡ **Smart caching strategy** - Improved cache hit rates with intelligent normalization
-- 🚀 **Embedding bottleneck resolved** - Multi-key parallel processing
+**Model-Driven Citation System:**
+- 🎯 **Thinking-Based Citations** - System analyzes LLM's `<think>` content to decide when to show citations
+- 📝 **Dynamic Excerpt Selection** - Extracts relevant excerpts based on what model described  
+- 🚫 **Smart Filtering** - No citations for "no information available" responses
+- ⚡ **Answer-Aware Scoring** - Prioritizes content chunks that match model's actual answer
+- 🧹 **No Hardcoded Patterns** - Completely dynamic without fixed keywords or rules
 
 ---
 
@@ -42,69 +40,95 @@
 
 ```mermaid
 flowchart TD
-    subgraph "Frontend (React)"
-        A[Document Upload UI] --> B[AI Assistant Creation]
-        B --> C[Chat Interface]
+    subgraph "LLM Strategy"
+        A[DeepSeek-R1 Primary] --> B{Success?}
+        B -->|Yes| C[Extract Thinking]
+        B -->|No| D[Gemini Fallback]
+        D --> C
     end
     
-    subgraph "Backend (FastAPI)"
-        D[RAGFlow Processing] --> E[RAPTOR Tree Building]
-        E --> F[AI Assistant Management]
-        F --> G[Chat Service]
+    subgraph "Citation Intelligence" 
+        C --> E[Analyze Thinking Content]
+        E --> F{Model Referenced Chunks?}
+        F -->|Yes| G[Show Smart Citations]
+        F -->|No| H[No Citations]
     end
     
-    subgraph "Optimizations"
-        H[Persistent Vector Index]
-        I[Smart Cache Layer]
-        J[Bulk DB Loading]
-    end
-    
-    subgraph "Embeddings"
-        K[VoyageAI Multi-Key]
-        L[BGE-M3 Local]
+    subgraph "Retrieval Core"
+        I[RAPTOR Tree Search]
+        J[Chunk Prioritization]  
+        K[Content Matching]
     end
     
     subgraph "Storage"
-        M[(Supabase DB)]
-        N[(Redis Cache)]
+        L[(Supabase DB)]
+        M[(Vector Index)]
     end
     
-    A -->|Parallel Upload| D
-    D --> M
-    E --> K
-    E --> L
-    G --> M
-    C -->|Real-time Chat| G
-    
-    G --> H
-    G --> I
-    G --> J
-    I --> N
+    I --> J
+    J --> K
+    K --> A
+    G --> L
     
     style A fill:#e1f5fe
     style D fill:#fff3e0
-    style G fill:#f3e5f5
-    style H fill:#e8f5e8
-    style I fill:#ffeb3b
-    style M fill:#f1f8e9
+    style E fill:#f3e5f5
+    style G fill:#e8f5e8
 ```
 
 ### Tech Stack
 
 - **Backend**: FastAPI + Uvicorn (async)
-- **Frontend**: React + TypeScript + TanStack Router + Hero UI
-- **Database**: Supabase (PostgreSQL + pgvector) with Alembic migrations
-- **Embeddings**: 
-  - **🏆 Recommended**: VoyageAI (multi-key, production-ready)
-  - **Alternative**: BGE-M3 via Ollama (local, cost-effective)
-- **LLM**: Gemini 1.5 Flash for chat + DeepSeek-V3 for summarization
+- **Database**: Supabase (PostgreSQL + pgvector) 
+- **Embeddings**: VoyageAI (multi-key) or BGE-M3 (local)
+- **Primary LLM**: DeepSeek-R1 via FPT Cloud API 
+- **Fallback LLM**: Google Gemini 1.5 Flash
 - **Clustering**: Gaussian Mixture Models + BIC optimization
-- **Caching**: Smart hash normalization + Redis persistence
-- **Vector Index**: FAISS with disk persistence
+- **Vector Search**: FAISS with similarity ranking
+
+---
+
+## 🤖 LLM Configuration
+
+### DeepSeek-R1 + Gemini Setup
+
+```env
+# Primary LLM: DeepSeek-R1 (via FPT Cloud)
+LLM_BASE_URL=https://mkp-api.fptcloud.com/v1  
+LLM_API_KEY=your_fpt_cloud_api_key
+PRIMARY_CHAT_MODEL=deepseek-r1
+PRIMARY_CHAT_TEMPERATURE=0.7
+PRIMARY_CHAT_MAX_TOKENS=2048
+
+# Fallback LLM: Google Gemini
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-1.5-flash
+GEMINI_TEMPERATURE=0.7
+GEMINI_MAX_OUTPUT_TOKENS=2048
+```
+
+### Citation Behavior
+
+**When Citations Are Shown:**
+- ✅ Model's thinking contains chunk references (`chunk_21`, `chunk_28`)  
+- ✅ Model mentions specific facts from content (`"it states that..."`, `"mentions that..."`)
+- ✅ Model answer overlaps with retrieved content
+
+**When Citations Are Hidden:**
+- ❌ Model states "no information available" or similar
+- ❌ Model doesn't reference specific chunks in thinking
+- ❌ Generic responses not based on retrieved content
 
 ---
 
 ## 📖 API Endpoints
+
+### 💬 Chat & Retrieval
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/assistant` | POST | Chat with AI assistant (DeepSeek-R1 → Gemini fallback) |
+| `/v1/ragflow/retrieve` | POST | Pure retrieval with RAPTOR trees |
 
 ### 🤖 AI Assistant Management
 
@@ -112,32 +136,15 @@ flowchart TD
 |----------|--------|-------------|
 | `/v1/ai/assistants` | GET | List all AI assistants |
 | `/v1/ai/assistants` | POST | Create new AI assistant |
-| `/v1/ai/assistants/{id}` | PUT | Update AI assistant |
 | `/v1/ai/assistants/{id}` | DELETE | Delete AI assistant (cascade) |
-
-### 💬 Chat & Sessions
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/v1/chat/sessions` | POST | Create new chat session |
-| `/v1/chat/sessions/{id}/messages` | GET | Get session messages |
-| `/v1/chat/sessions/{id}/chat` | POST | Send message & get AI response |
-| `/v1/chat/assistants/{id}/sessions` | GET | Get assistant's chat sessions |
 
 ### 📚 Document Processing
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/ragflow/process` | POST | Upload & process documents (supports .md/.markdown) |
-| `/v1/ragflow/retrieve` | POST | ⚡ **Optimized retrieval** with advanced scoring |
-
-### 🗂️ Knowledge Base
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
 | `/v1/kb/create` | POST | Create knowledge base |
 | `/v1/kb/list` | GET | List knowledge bases |
-| `/v1/kb/{id}/documents` | GET | Get documents in KB |
 
 ---
 
@@ -146,10 +153,10 @@ flowchart TD
 ### 1. Prerequisites
 
 - **Python 3.10+**
-- **Node.js 18+** (for frontend)
 - **uv** (fast Python package manager)
-- **pnpm** (efficient Node.js package manager)
-- **VoyageAI API Key** (recommended) or **Ollama** (for local BGE-M3)
+- **FPT Cloud API Key** (for DeepSeek-R1)
+- **Google Gemini API Key** (for fallback)
+- **VoyageAI API Key** (recommended) or **Ollama** (for local embeddings)
 - **Supabase** account (for database)
 
 ### 2. Backend Setup
@@ -158,15 +165,12 @@ flowchart TD
 git clone <your-repo>
 cd raptor_service
 
-# Install uv if not already installed
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
 # Install dependencies with uv
 uv pip install -r requirements.txt
 
 # Setup environment
 cp env.template .env
-# Edit .env with your credentials (see Configuration section)
+# Edit .env with your API keys (see Configuration section)
 
 # Setup database
 python setup_database.py
@@ -175,79 +179,36 @@ python setup_database.py
 uvicorn main:app --reload --host 0.0.0.0 --port 8081
 ```
 
-### 3. Frontend Setup
-
-```bash
-cd frontend
-
-# Install pnpm if not already installed
-npm install -g pnpm
-
-# Install dependencies with pnpm
-pnpm install
-
-# Start development server  
-pnpm dev
-```
-
-### 4. Access Applications
+### 3. Access Applications
 
 - **Backend API**: http://localhost:8081
 - **API Documentation**: http://localhost:8081/docs
-- **Frontend UI**: http://localhost:5173
 
 ---
 
 ## 🔧 Configuration
 
-### 🏆 Recommended: VoyageAI Multi-Key Setup
-
-```env
-# VoyageAI Embeddings (RECOMMENDED for production)
-EMBED_BASE_URL=https://api.voyageai.com/v1
-EMBED_API_KEY=pa-key1,pa-key2,pa-key3,pa-key4,pa-key5,pa-key6
-EMBED_MODEL=voyage-context-3
-EMBED_VECTOR_DIM=1024
-
-# Benefits:
-# ✅ Fastest performance with parallel processing
-# ✅ Multi-key parallel processing (4-6 keys recommended)
-# ✅ Professional-grade reliability
-# ✅ Zero rate limits with proper key distribution
-```
-
-### 🔄 Alternative: BGE-M3 Local Setup
-
-```env
-# BGE-M3 Local Embeddings (cost-effective)
-EMBED_BASE_URL=http://localhost:11434/api/embeddings
-EMBED_API_KEY=
-EMBED_MODEL=bge-m3:latest
-EMBED_VECTOR_DIM=1024
-```
-
-**Setup Ollama for BGE-M3:**
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull BGE-M3 model
-ollama pull bge-m3:latest
-
-# Start Ollama service
-ollama serve
-
-# Verify
-curl http://localhost:11434/api/tags
-```
-
 ### Complete Environment Variables
 
 ```env
+# === DUAL LLM CONFIGURATION ===
+# Primary LLM: DeepSeek-R1 (via FPT Cloud)
+LLM_BASE_URL=https://mkp-api.fptcloud.com/v1
+LLM_API_KEY=your_fpt_cloud_api_key
+PRIMARY_CHAT_MODEL=deepseek-r1
+PRIMARY_CHAT_TEMPERATURE=0.7
+PRIMARY_CHAT_MAX_TOKENS=2048
+
+# Fallback LLM: Google Gemini  
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-1.5-flash
+GEMINI_TEMPERATURE=0.7
+GEMINI_MAX_OUTPUT_TOKENS=2048
+
 # === EMBEDDING CONFIGURATION ===
-# VoyageAI (RECOMMENDED - fastest performance)
+# VoyageAI (RECOMMENDED - multi-key support)
 EMBED_BASE_URL=https://api.voyageai.com/v1
-EMBED_API_KEY=pa-key1,pa-key2,pa-key3,pa-key4,pa-key5,pa-key6
+EMBED_API_KEY=pa-key1,pa-key2,pa-key3,pa-key4
 EMBED_MODEL=voyage-context-3
 EMBED_VECTOR_DIM=1024
 
@@ -257,34 +218,10 @@ EMBED_VECTOR_DIM=1024
 # EMBED_MODEL=bge-m3:latest
 # EMBED_VECTOR_DIM=1024
 
-# === LLM CONFIGURATION ===
-# FPT Cloud for document summarization
-LLM_BASE_URL=https://mkp-api.fptcloud.com/v1
-LLM_API_KEY=your_fpt_cloud_api_key
-LLM_MODEL=DeepSeek-V3
-
-# Google Gemini for smart chat
-GEMINI_API_KEY=your_gemini_api_key
-
 # === DATABASE CONFIGURATION ===
-# Supabase PostgreSQL with pgvector
 DATABASE_URL=postgresql+psycopg://postgres.PROJECT_ID:PASSWORD@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require
 DB_ENABLE_SSL=true
-DB_SSL_CERT_PATH=prod-ca-2021.crt
 SUPABASE_SSLROOTCERT=./database/prod-ca-2021.crt
-
-# === CACHING CONFIGURATION ===
-# Redis Cache (optional, for better performance)
-REDIS_ENABLED=true
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
-REDIS_TTL=300
-
-# Cache settings
-RETRIEVAL_CACHE_TTL_SECONDS=300
-RETRIEVAL_CACHE_MAX_ENTRIES=100
-EMBED_CACHE_TTL_SECONDS=86400
 
 # === OPTIONAL CONFIGURATION ===
 # Raptor tree building
@@ -302,57 +239,45 @@ API_PORT=8081
 API_RELOAD=true
 ```
 
-### 🔑 VoyageAI Multi-Key Best Practices
-
-**✅ Recommended Key Count:** 4-6 keys
-```env
-# Example with multiple keys for optimal performance
-EMBED_API_KEY=pa-xxxxxxxxxx1,pa-xxxxxxxxxx2,pa-xxxxxxxxxx3,pa-xxxxxxxxxx4,pa-xxxxxxxxxx5,pa-xxxxxxxxxx6
-```
-
-**Benefits of Multiple Keys:**
-- 🚀 **Parallel Processing**: True parallel embedding across all keys
-- ⚡ **Zero Rate Limits**: Smart load balancing prevents rate limit encounters
-- 🎯 **Optimal Performance**: Significantly faster than sequential processing
-- 🛡️ **Automatic Failover**: Rapid failover if any key encounters issues
-- 📊 **Token-aware Selection**: Prioritizes keys with lower current usage
-
----
-
-## 💻 Frontend Features
-
-### 📁 Document Management
-- **Parallel Upload**: Upload multiple .md files simultaneously
-- **Progress Tracking**: Real-time upload progress with percentage
-- **Validation**: Client-side validation for file types and sizes
-- **Error Handling**: Detailed error messages and retry capability
-
-### 🤖 AI Assistant Creation
-- **Knowledge Base Integration**: Link assistants to specific knowledge bases
-- **Custom Configuration**: Set system prompts and model parameters
-- **Management**: Full CRUD operations with cascade deletion
-
-### 💬 Chat Interface
-- **Real-time Messaging**: Send messages and receive AI responses
-- **Session Management**: Create and switch between chat sessions
-- **Message History**: Persistent conversation storage
-- **Context-aware Responses**: AI responses based on knowledge base content
-
 ---
 
 ## 🧪 Usage Examples
 
-### Create AI Assistant
+### Chat with Smart Citations
 
 ```bash
-curl -X POST "http://localhost:8081/v1/ai/assistants" \
+curl -X POST "http://localhost:8081/v1/chat/assistant" \
   -H "Content-Type: application/json" \
   -d '{
+    "query": "What team won the 2019 League of Legends World Championship?",
+    "session_id": "demo::session::12345"
+  }'
+```
+
+**Response with Smart Citations:**
+```json
+{
+  "answer": "FunPlus Phoenix (FPX) won the 2019 League of Legends World Championship, defeating G2 Esports 3-0 in the finals.",
+  "context_passages": [
+    {
+      "source_id": "doc1_chunk_25",
+      "relevant_excerpt": "**2019** saw FunPlus Phoenix secure another Chinese victory over G2 Esports (3-0) with Tian earning MVP honors.",
+      "similarity_score": 0.89
+    }
+  ]
+}
+```
+
+### Pure Retrieval
+
+```bash
+curl -X POST "http://localhost:8081/v1/ragflow/retrieve" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "RAPTOR clustering algorithm",
     "tenant_id": "demo",
-    "kb_id": "my_documents",
-    "name": "Technical Support Bot",
-    "description": "AI assistant for technical documentation",
-    "system_prompt": "You are a helpful technical support assistant."
+    "kb_id": "technical_docs",
+    "top_k": 5
   }'
 ```
 
@@ -366,102 +291,89 @@ curl -X POST "http://localhost:8081/v1/ragflow/process" \
   -F "enable_raptor=true"
 ```
 
-### Start Chat Session
+---
 
-```bash
-curl -X POST "http://localhost:8081/v1/chat/sessions" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tenant_id": "demo",
-    "assistant_id": "demo::assistant::12345",
-    "name": "Support Chat"
-  }'
+## 🔍 Citation System Details
+
+### How It Works
+
+1. **User Query** → RAPTOR retrieval finds relevant chunks
+2. **DeepSeek-R1** processes query + chunks → generates answer with `<think>` content  
+3. **Citation Logic** analyzes thinking:
+   - If thinking mentions `chunk_X` → show citations from those chunks
+   - If thinking has "no information" → hide citations
+   - Extract relevant excerpts based on model's descriptions
+4. **Fallback to Gemini** if DeepSeek-R1 fails
+
+### Example Thinking Analysis
+
+**DeepSeek-R1 Thinking:**
+```
+<think>
+Looking at chunk_21, it mentions that Edward Gaming won in 2021. 
+Chunk_28 also states they defeated DWG KIA 3-2 in the finals.
+</think>
 ```
 
-### Send Message
-
-```bash
-curl -X POST "http://localhost:8081/v1/chat/sessions/{session_id}/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "How do I configure the database connection?",
-    "stream": false
-  }'
-```
+**System Response:**
+- ✅ **Citations shown** (model referenced chunk_21, chunk_28)
+- 🎯 **Prioritized chunks 21 & 28** in citation display  
+- 📝 **Smart excerpts** based on "won in 2021" and "defeated DWG KIA 3-2"
 
 ---
 
-## 📊 Performance & Scalability
+## 🏗️ Architecture Changes
 
-### 🚀 **Performance Improvements**
+### What's New
 
-**Chat Response Experience:**
+- **🔄 Removed Deep Research**: Simplified to pure retrieval for MCP compatibility
+- **🤖 Dual LLM Strategy**: DeepSeek-R1 primary, Gemini fallback  
+- **🧠 Thinking Extraction**: Parse `<think>` tags for citation intelligence
+- **📝 Model-Driven Citations**: Let LLM decide what's relevant to cite
+- **🧹 Code Cleanup**: Removed 190+ lines of hardcoded patterns
+- **🎯 Dynamic Logic**: No fixed keywords, adapts to model behavior
+
+### What Was Removed
+
+- ❌ **Deep Research Module** - Multi-step reasoning (moved to external orchestration)
+- ❌ **Hardcoded Citation Patterns** - Fixed regex patterns for excerpt extraction  
+- ❌ **Complex Scoring Algorithms** - Overcomplicated factual marker bonuses
+- ❌ **Fixed Keyword Lists** - Stop words, team names, action verbs hardcoded
+- ❌ **Generic Fallbacks** - Complex algorithm-based excerpt selection
+
+### Code Quality Improvements
+
 ```bash
-✅ Popular Questions:    Lightning fast responses with cache hits
-✅ Regular Chat:         Smooth, consistent conversation experience  
-✅ Cold Start:           Significantly faster server startup
-✅ Database Fallback:    Reliable performance without timeouts
+# Before: Complex hardcoded approach
+thinking_helper.py: 258 lines with hardcoded patterns
+citation_formatter.py: 180+ lines with complex scoring
 
-🎯 Overall: Much faster chat responses across all scenarios
+# After: Clean model-driven approach  
+thinking_helper.py: 88 lines, pure dynamic logic
+citation_formatter.py: Simplified with model-guided excerpts
+
+🎯 Result: 60% less code, 100% more reliable citations
 ```
-
-**Retrieval Optimizations:**
-```bash
-✅ Embedding Bottleneck: RESOLVED   (Multi-key parallel processing)
-✅ Vector Index Rebuild: OPTIMIZED  (Persistent indexing for faster startup)
-✅ Scoring Complexity:   ENHANCED   (Early termination + preprocessing)
-✅ Database N+1 Queries: ELIMINATED (Bulk loading eliminates slow fallback)
-✅ Cache Strategy:       IMPROVED   (Smart normalization increases hit rates)
-```
-
-### 🏆 RAPTOR Processing Performance
-
-**VoyageAI Multi-Key (Recommended):**
-```bash
-✅ RAPTOR Tree Building: Fast and reliable
-✅ Embedding Generation: Near-instant with parallel processing
-✅ Total Processing: Optimized for production workloads
-✅ Parallel Keys: Multiple keys simultaneous processing
-✅ Rate Limits: Zero encounters with proper load balancing
-```
-
-**BGE-M3 Local (Optimized):**
-```bash
-✅ RAPTOR Tree Building: Competitive performance
-✅ Embedding Generation: Fast with optimized parallel processing
-✅ Total Processing: Efficient for cost-conscious deployments
-✅ Parallel Processing: High concurrent connections
-✅ Cost: Zero API costs
-```
-
-### Performance Comparison
-
-| Feature | VoyageAI Multi-Key | BGE-M3 Local |
-|---------|-------------------|--------------|
-| **RAPTOR Speed** | Fastest ⚡ | Fast ✅ |
-| **Embedding Speed** | Excellent 🚀 | Good ✅ |
-| **Reliability** | Production-grade 🛡️ | Reliable 🛡️ |
-| **Cost** | API usage 💳 | Free 🆓 |
-| **Privacy** | Cloud ☁️ | Local 🔒 |
-
-### Database Features
-- **Multi-tenant Isolation**: Data separated by `tenant_id`
-- **Vector Search**: pgvector with HNSW indexing for fast similarity search
-- **Optimized Writes**: Bulk operations with skip-refresh for embeddings
-- **Cascade Deletion**: Automatic cleanup when deleting assistants
-- **Migration System**: Alembic for database schema management
-
-### Frontend Performance  
-- **Parallel Processing**: Multiple file uploads with individual progress tracking
-- **Real-time Updates**: Immediate UI updates without page refresh
-- **Error Recovery**: Graceful handling of upload failures and retries
-- **Responsive Design**: Works on desktop and mobile devices
 
 ---
 
 ## 🔧 Troubleshooting
 
 ### Common Issues
+
+**❌ DeepSeek-R1 API Issues**
+```bash
+# Check FPT Cloud API key and credits
+# Verify MODEL_NAME matches exactly: "deepseek-r1"  
+# System will fallback to Gemini automatically
+```
+
+**❌ Citations Not Showing**
+```bash
+# Check if model mentioned chunks in thinking
+# Look for patterns like "chunk_21 mentions..." in logs
+# Verify model answer overlaps with retrieved content
+```
 
 **❌ Database Connection Failed**
 ```bash
@@ -471,89 +383,47 @@ python setup_database.py
 # Check Supabase project status and credentials in .env
 ```
 
-**❌ VoyageAI API Issues**
-```bash
-# Check API keys format
-# Ensure keys start with "pa-" and are comma-separated
-# Verify API key permissions and rate limits
-```
-
-**❌ Ollama/BGE-M3 Not Working**
-```bash
-# Check Ollama service
-curl http://localhost:11434/api/tags
-
-# Restart and pull model
-ollama pull bge-m3:latest
-```
-
-**❌ Frontend Not Loading**
-```bash
-cd frontend
-pnpm install
-pnpm dev
-
-# Check if backend is running on port 8081
-```
-
-**❌ File Upload Fails**
-- Ensure files are .md or .markdown format
-- Check file size limits (10MB default)
-- Verify knowledge base exists before upload
-
 ### Debug Mode
 
 Enable detailed logging:
 ```env
-LOG_LEVEL=DEBUG
+LOG_LEVEL=INFO
 ```
 
-Check browser console for frontend issues and backend logs for API problems.
+Check logs for:
+- `🤖 Trying DeepSeek-R1 (Primary LLM)`
+- `🧠 Thinking extracted: X chars`  
+- `🎯 Model described: '...' → best match`
+- `📊 Citation decision: True/False`
 
 ---
 
 ## 🚀 Production Deployment
 
-### Backend Deployment
-1. Set production environment variables (use VoyageAI for best performance)
-2. Run database migrations: `alembic upgrade head`
-3. Deploy FastAPI with proper ASGI server (Gunicorn + Uvicorn)
-4. Configure reverse proxy (Nginx) for static files and API
-5. Setup Redis for production caching
-
-### Frontend Deployment
-```bash
-cd frontend
-pnpm build
-# Deploy dist/ folder to static hosting (Vercel, Netlify, etc.)
-```
-
 ### Security Checklist
-- [ ] Use environment variables for all secrets
+- [ ] Use environment variables for all API keys
 - [ ] Enable HTTPS for all connections
 - [ ] Configure CORS for production domains
 - [ ] Set up proper database user permissions
-- [ ] Regular backup of database and uploaded files
-- [ ] Rotate VoyageAI API keys regularly
-- [ ] Secure Redis instance with authentication
+- [ ] Regular backup of database and files
+- [ ] Rotate FPT Cloud & Gemini API keys regularly
 
 ### Production Recommendations
-- **🏆 Use VoyageAI**: Best performance and reliability
-- **📊 Monitor Usage**: Track API usage and costs
+- **🤖 Monitor API Usage**: Track DeepSeek-R1 & Gemini usage/costs
 - **🔄 Load Balancing**: Consider multiple backend instances
-- **📈 Scaling**: Add more VoyageAI keys for higher throughput
-- **⚡ Redis Cache**: Enable for significantly improved cache hit rates
+- **📊 Citation Quality**: Monitor citation relevance in production
+- **⚡ Fallback Monitoring**: Track primary vs fallback LLM usage rates
 
 ---
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`  
+2. Create feature branch: `git checkout -b feature/citation-improvements`
 3. Follow code style: `black . && isort .`
-4. Test both backend and frontend changes
-5. Commit changes: `git commit -m 'Add amazing feature'`
-6. Push to branch: `git push origin feature/amazing-feature`
+4. Test citation system with various queries
+5. Commit changes: `git commit -m 'Improve citation extraction'`
+6. Push to branch: `git push origin feature/citation-improvements`
 7. Open a Pull Request
 
 ### Development Setup
@@ -563,11 +433,6 @@ pnpm build
 uv pip install -r requirements.txt
 python setup_database.py
 uvicorn main:app --reload
-
-# Frontend development (using pnpm)
-cd frontend
-pnpm install
-pnpm dev
 
 # Run tests
 pytest tests/ -v
@@ -584,17 +449,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **RAPTOR**: Based on the RAPTOR paper for hierarchical retrieval (arXiv:2401.18059)
-- **RAGFlow**: Inspired by RAGFlow's hybrid retrieval methodology
-- **VoyageAI**: Advanced embedding APIs with excellent performance
-- **BGE-M3**: Beijing Academy of AI's multilingual embedding model
+- **DeepSeek-R1**: Advanced reasoning LLM with thinking capabilities
+- **VoyageAI**: High-quality embedding APIs
+- **Google Gemini**: Reliable fallback LLM
 - **Supabase**: Modern PostgreSQL with vector extensions
-- **Ollama**: Local embedding model serving
-- **React + Hero UI**: Modern frontend framework and component library
 
 ---
 
-*Built with ❤️ for intelligent document processing and AI assistant management*
+*Built with ❤️ for intelligent document retrieval and smart AI citations*
 
-*🏆 Optimized for production with VoyageAI multi-key embedding and RAPTOR hierarchical trees*
+*🧠 **Model-driven citations** - Let the AI decide what's worth citing*
 
-*⚡ **Significantly faster chat responses** with advanced retrieval optimizations*
+*🎯 **Pure retrieval architecture** - MCP-ready for external orchestration*

@@ -109,7 +109,6 @@ async def _embed_texts_internal(texts: List[str], vector_dim: int, cfg: Embeddin
             logger.info(f"♻️ Using cached Voyage embedder: {cache_key[:20]}...")
         
         embedder = _voyage_embedder_cache[cache_key]
-        # ✅ Removed _single_text_counter debug log (attribute no longer exists after cleanup)
         
         # Calculate base batch size considering multi-key setup
         key_multiplier = min(len(api_keys), 8)  # Support up to 8 keys
@@ -228,21 +227,18 @@ async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider
     headers = {"Content-Type": "application/json"}
     vectors = []
     
-    # ✅ HIGH-PERFORMANCE parallel processing for local BGE
     logger.info(f"🔥 BGE LOCAL: Processing {len(texts)} texts with aggressive parallel batching")
     
     async def embed_batch_async(batch_texts: List[str]) -> List[List[float]]:
         """OPTIMIZED async batch processing - LOCAL BGE performance mode"""
         batch_vectors = []
         
-        # ✅ MAXIMUM CONCURRENCY for local BGE (no rate limits)
         semaphore = asyncio.Semaphore(max_concurrent)  # Control concurrency
         
         async with aiohttp.ClientSession() as session:
             tasks = []
             
             for text in batch_texts:
-                # ✅ TRUE PARALLEL - No delays, semaphore-controlled concurrency
                 tasks.append(embed_single_with_semaphore(session, semaphore, text))
             
             # Execute all requests concurrently with better error handling
@@ -264,7 +260,6 @@ async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider
     
     async def embed_single_text_async(session: aiohttp.ClientSession, text: str, delay: float = 0) -> List[float]:
         """Single text embedding with retry logic - OPTIMIZED for local BGE"""
-        # ✅ No delays for local BGE - maximum performance
         
         payload = {"model": model, "prompt": text}
         
@@ -285,7 +280,7 @@ async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider
                     
             except asyncio.TimeoutError:
                 if attempt < max_retries - 1:
-                    # Exponential backoff with jitter (consistent với top-level retry)
+                    # Exponential backoff with jitter 
                     import random
                     delay = (2 ** attempt) + random.uniform(0, 0.5)
                     await asyncio.sleep(delay)
@@ -293,7 +288,7 @@ async def _embed_texts_bge(base_url: str, model: str, texts: List[str], provider
                 raise EmbeddingError(f"BGE request timeout after {max_retries} attempts", "BGE_TIMEOUT")
             except Exception as e:
                 if attempt < max_retries - 1:
-                    # Exponential backoff with jitter (consistent với top-level retry)
+                    # Exponential backoff with jitter 
                     import random
                     delay = (2 ** attempt) + random.uniform(0, 0.5)
                     await asyncio.sleep(delay)

@@ -14,7 +14,7 @@ class CacheSettings(BaseSettings):
     embed_cache_max_size: int = Field(10000, env="CACHE_EMBED_MAX_SIZE")
     
     # Cache behavior with TTL support
-    cache_hit_log_enabled: bool = Field(False)
+    cache_hit_log_enabled: bool = Field(True)  # Enable for debugging
     
     # TTL settings (Time To Live)
     llm_cache_ttl_seconds: int = Field(3600)  # 1 hour

@@ -319,42 +319,37 @@ class VoyageMultiKeyEmbedder:
     
     
     async def _embed_multi_key_groups(self, groups: List[List[str]]) -> List[List[float]]:
-        """Multi-key approach - MAXIMIZE ALL KEYS USAGE"""
+        """Multi-key approach - PRESERVE TOKEN PACKING"""
         print(f"🔑 MULTI-KEY PROCESSING: {len(groups)} groups across {len(self.api_keys)} keys")
         
-        # 🚀 REDISTRIBUTE to use ALL KEYS: Split large groups across all available keys
-        all_texts = []
-        for group in groups:
-            all_texts.extend(group)
+        # 🎯 KEEP GROUPS INTACT: Preserve token packing optimization!
+        # Each group = 1 API call (much more efficient than flattening)
+        print(f"🎯 PRESERVING TOKEN PACKING: {len(groups)} API calls instead of flattening")
         
-        print(f"🔄 REDISTRIBUTING: {len(all_texts)} texts across ALL {len(self.api_keys)} keys")
+        # SMART GROUP DISTRIBUTION: Assign groups to keys (preserve token packing)
+        available_keys = [i for i in range(len(self.api_keys)) if i not in self.failed_keys]
+        if not available_keys:
+            available_keys = list(range(len(self.api_keys)))  # Reset if all failed
         
-        # SMART DISTRIBUTION: Use least-used keys for better load balancing
-        if len(all_texts) <= 4:
-            # For small batches: pick least-used keys
-            selected_keys = self._pick_least_used_keys(min(len(all_texts), len(self.api_keys)))
-            print(f"🎯 SMALL BATCH: Using {len(selected_keys)} least-used keys: {selected_keys}")
-        else:
-            # For large batches: use all available keys  
-            selected_keys = [i for i in range(len(self.api_keys)) if i not in self.failed_keys]
-            if not selected_keys:
-                selected_keys = list(range(len(self.api_keys)))  # Reset if all failed
-            print(f"🔥 LARGE BATCH: Using all {len(selected_keys)} available keys")
+        # Use least-used keys for optimal load balancing
+        selected_keys = self._pick_least_used_keys(min(len(groups), len(available_keys)))
+        print(f"🎯 GROUP ASSIGNMENT: {len(groups)} groups → {len(selected_keys)} keys")
         
-        key_assignments = {}
-        for i, text in enumerate(all_texts):
-            key_index = selected_keys[i % len(selected_keys)]  # Smart key selection
-            if key_index not in key_assignments:
-                key_assignments[key_index] = []
-            key_assignments[key_index].append(text)
+        # Assign each GROUP to a key (1 group = 1 API call)
+        group_assignments = {}
+        for i, group in enumerate(groups):
+            key_index = selected_keys[i % len(selected_keys)]
+            if key_index not in group_assignments:
+                group_assignments[key_index] = []
+            group_assignments[key_index].extend(group)  # All texts in group go to same key
         
         # Log distribution
-        for key_idx, texts in key_assignments.items():
-            print(f"📊 KEY {key_idx}: {len(texts)} texts")
+        for key_idx, texts in group_assignments.items():
+            print(f"📊 KEY {key_idx}: {len(texts)} texts (from assigned groups)")
         
         # Execute ALL keys in parallel
         tasks = []
-        for key_index, texts in key_assignments.items():
+        for key_index, texts in group_assignments.items():
             task = self._embed_with_key(
                 client=self.clients[key_index],
                 api_key=self.api_keys[key_index],
@@ -418,9 +413,12 @@ class VoyageMultiKeyEmbedder:
         
         print(f"✅ MULTI-KEY COMPLETED: ALL {len(tasks)} keys in {elapsed:.1f}s")
         
-        # Reconstruct in original order
+        # Reconstruct in original order (flatten groups for mapping)
+        all_texts = []
+        for group in groups:
+            all_texts.extend(group)
+        
         final_embeddings = [None] * len(all_texts)
-        result_index = 0
         
         for i, (key_index, texts, _) in enumerate(tasks):
             result = results[i]

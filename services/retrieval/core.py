@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from models import RetrievalRequest, RetrievalResponse, RetrievedNode, RetrievalStats
 from config.embedding import get_embedding_settings
@@ -86,7 +86,19 @@ class EnhancedRAGFlowRetrieval:
     
     async def retrieve(self, req: RetrievalRequest) -> RetrievalResponse:
         """
-        Enhanced RAGFlow retrieval with query enhancement and fast vector search
+        Enhanced RAGFlow retrieval with FAISS vector search and hybrid scoring
+        """
+        try:
+            logger.info(f"🚀 Enhanced retrieval: '{req.query}' in KB {req.kb_id}")
+            return await self._standard_retrieval(req)
+                
+        except Exception as e:
+            logger.error(f"Enhanced retrieval failed: {e}")
+            raise
+    
+    async def _standard_retrieval(self, req: RetrievalRequest) -> RetrievalResponse:
+        """
+        Standard enhanced RAGFlow retrieval with query enhancement and fast vector search
         """
         start_time = time.time()
         timings = {}  # Track performance of each step

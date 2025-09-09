@@ -1,14 +1,14 @@
 @layer theme, base, utilities, radix;
 
-/* 1) Radix Themes trước */
+/* 1) Radix Themes first */
 @import "@radix-ui/themes/styles.css" layer(radix);
 
-/* 2) Tailwind v4 tách lớp để kiểm soát thứ tự */
+/* 2) Tailwind v4 separated layers for order control */
 @import "tailwindcss/theme.css"     layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* 3) HeroUI plugin + nguồn quét */
+/* 3) HeroUI plugin + scan sources */
 @plugin "./hero.ts";
 
 @source "./index.html";

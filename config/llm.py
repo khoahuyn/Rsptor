@@ -4,10 +4,17 @@ from pydantic_settings import BaseSettings
 
 class LLMSettings(BaseSettings):
     
-    # FPT Cloud (DeepSeek-V3) - Business configuration
+    # FPT Cloud - Business configuration
     base_url: str = Field("https://mkp-api.fptcloud.com/v1", env="LLM_BASE_URL")
     api_key: str = Field("", env="LLM_API_KEY")
+    
+    # Regular tasks (summary, etc.)
     model: str = Field("DeepSeek-V3", env="LLM_MODEL")
+    
+    # Primary Chat configuration (DeepSeek-R1)
+    primary_chat_model: str = Field("DeepSeek-R1", env="LLM_PRIMARY_CHAT_MODEL")
+    primary_chat_temperature: float = Field(0.1, env="LLM_PRIMARY_CHAT_TEMPERATURE")
+    primary_chat_max_tokens: int = Field(2048, env="LLM_PRIMARY_CHAT_MAX_TOKENS")
     
     # Summary-specific parameters (RAGFlow approach)
     summary_max_tokens: int = Field(1024)

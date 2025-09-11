@@ -33,6 +33,12 @@ logging.getLogger("root").setLevel(logging.WARNING)
 logging.getLogger("services.build_tree").setLevel(logging.INFO)
 logging.getLogger("services.document.raptor_builder").setLevel(logging.INFO)
 
+# Enable MCP server logs
+logging.getLogger("raptor.mcp.langflow").setLevel(logging.INFO)
+
+# Reduce faiss loader noise
+logging.getLogger("faiss.loader").setLevel(logging.WARNING)
+
 app = FastAPI()
 
 # Add CORS middleware

@@ -27,4 +27,7 @@ dependencies = [
     "umap-learn>=0.5.9.post2",
     "uvicorn>=0.35.0",
     "voyageai>=0.3.4",
+    "mcp[cli]>=1.0.0",
+    "fastmcp>=2.12.2",
+    "aiohttp>=3.8.0",
 ]

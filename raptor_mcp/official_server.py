@@ -56,9 +56,9 @@ class RaptorMCPService:
                             "top_k": {
                                 "type": "integer",
                                 "description": "Number of top results to return",
-                                "default": 5,
+                                "default": 8,
                                 "minimum": 1,
-                                "maximum": 20
+                                "maximum": 30
                             }
                         },
                         "required": ["query"],
@@ -83,7 +83,7 @@ class RaptorMCPService:
                         
                     tenant_id = arguments.get("tenant_id", "test_tenant")
                     kb_id = arguments.get("kb_id", "main")
-                    top_k = min(max(arguments.get("top_k", 5), 1), 20)
+                    top_k = min(max(arguments.get("top_k", 8), 1), 30)
 
                     logger.info(f"🔍 Retrieving: query='{query}', tenant={tenant_id}, kb={kb_id}, top_k={top_k}")
 

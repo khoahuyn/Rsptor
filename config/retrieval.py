@@ -7,22 +7,6 @@ class RetrievalConfig(BaseModel):
     # Similarity calculation weight (text_weight = 1.0 - vector_weight)
     vector_similarity_weight: float = Field(0.95)
     
-    # Keyword bonus settings  
-    min_keyword_length: int = Field(3)
-    max_keyword_bonus: float = Field(0.15)
-    
-    # Position bonus settings
-    position_bonus_chunks: int = Field(5)
-    max_position_bonus: float = Field(0.02)
-    
-    # Length bonus settings (auto range: optimal ±75%)
-    optimal_content_length: int = Field(600)
-    max_length_bonus: float = Field(0.03)
-    
-    # Owner type bonuses
-    summary_type_bonus: float = Field(0.1)
-    root_type_bonus: float = Field(0.15)
-    
     # Token estimation
     tokens_per_word: float = Field(1.3)
 

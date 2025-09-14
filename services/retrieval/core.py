@@ -21,8 +21,32 @@ from .retrieval_helper import (
     calculate_advanced_similarity,
     calculate_final_score
 )
+from services.rerank.api_rerank_service import get_fast_reranker
 
 logger = logging.getLogger("enhanced_retrieval_core")
+
+
+def get_reranker(req):
+    """Get appropriate reranker based on request parameters"""
+    import os
+    
+    if not req.rerank_id:
+        return None
+    
+    # Jina API reranker (model hardcoded in code)
+    if req.rerank_id == "jina":
+        api_key = os.getenv("JINA_API_KEY")
+        if api_key:
+            return get_fast_reranker("jina", api_key=api_key)
+        else:
+            logger.warning("⚠️ jina requested but JINA_API_KEY environment variable not set")
+            return None
+    
+    
+    # Unknown reranker - reject invalid requests
+    else:
+        logger.warning(f"⚠️ Unknown rerank_id: '{req.rerank_id}'. Available: jina")
+        return None
 
 
 class EnhancedRAGFlowRetrieval:
@@ -34,6 +58,16 @@ class EnhancedRAGFlowRetrieval:
         self.cache_config = get_cache_settings()
         self.raptor_config = get_raptor_settings()
         self.cache = {}  # Simple query cache
+    
+    def _get_rerank_suffix(self, req):
+        """Get search method suffix based on reranker type"""
+        if not req.rerank_id:
+            return ""
+        
+        if req.rerank_id == "jina":
+            return "_rerank_jina"
+        else:
+            return "_rerank_unknown"
     
     def _is_cache_valid(self, cache_entry: Dict) -> bool:
         """Check if cache entry is still valid"""
@@ -112,7 +146,9 @@ class EnhancedRAGFlowRetrieval:
             normalized_query = req.query.lower().strip()
             # Remove extra spaces and normalize punctuation
             normalized_query = ' '.join(normalized_query.split())
-            query_hash = hashlib.md5(f"{normalized_query}_{req.tenant_id}_{req.kb_id}_{req.top_k}".encode()).hexdigest()
+            # Include rerank parameters in cache key to avoid cache collisions
+            rerank_suffix = f"_{req.rerank_id or 'none'}_{req.rerank_top_k}" if req.rerank_id else "_none_none"
+            query_hash = hashlib.md5(f"{normalized_query}_{req.tenant_id}_{req.kb_id}_{req.top_k}{rerank_suffix}".encode()).hexdigest()
             cached_result = self._get_from_cache(query_hash)
             if cached_result:
                 # 🚀 PERFORMANCE: Log cache effectiveness
@@ -151,6 +187,20 @@ class EnhancedRAGFlowRetrieval:
                     
                     # RAGFlow approach: Get large candidate pool for reranking  
                     total_candidates = req.top_k * req.candidate_multiplier
+                    
+                    # Optimization: Don't request more candidates than available
+                    available_chunks = index.size()
+                    original_candidates = total_candidates
+                    if req.rerank_id:
+                        # For reranking: use rerank_top_k but cap at available chunks
+                        total_candidates = min(req.rerank_top_k, available_chunks)
+                    else:
+                        # For non-reranking: cap at available chunks  
+                        total_candidates = min(total_candidates, available_chunks)
+                    
+                    if total_candidates != original_candidates:
+                        logger.info(f"🎯 Optimized candidates: {original_candidates} → {total_candidates} (available: {available_chunks})")
+                    
                     vector_results = await index.search_async(query_vector, total_candidates)
 
                     logger.info(f"⚡ Fast vector search: {len(vector_results)} candidates from index of {index.size()} vectors")
@@ -159,6 +209,35 @@ class EnhancedRAGFlowRetrieval:
                     scored_chunks = await convert_vector_results_to_chunks(
                         vector_results, req, repos, query_tokens, query_vector
                     )
+                    
+                    # Reranking for FAISS path
+                    if req.rerank_id and scored_chunks:
+                        logger.info(f"🔄 Applying reranking with model: {req.rerank_id}")
+                        
+                        # Stage 1: Get candidates for reranking (already optimized in total_candidates)
+                        rerank_candidates = scored_chunks  # No need to slice, already optimal count
+                        
+                        # Stage 2: Rerank with appropriate model
+                        try:
+                            reranker = get_reranker(req)
+                            if reranker is None:
+                                logger.warning(f"⚠️ Failed to initialize reranker: {req.rerank_id}")
+                            else:
+                                reranked_chunks = reranker.rerank_with_chunk_data(enhanced_query, rerank_candidates)
+                                
+                                # Update scores with rerank scores
+                                for chunk, rerank_score in reranked_chunks:
+                                    chunk['rerank_score'] = rerank_score
+                                    chunk['final_score'] = rerank_score
+                                
+                                # Replace scored_chunks with reranked results
+                                scored_chunks = [chunk for chunk, _ in reranked_chunks]
+                            
+                            logger.info(f"🎯 Reranked {len(rerank_candidates)} FAISS candidates")
+                            
+                        except Exception as e:
+                            logger.warning(f"⚠️ Reranking failed, using FAISS scores: {e}")
+                            # Keep original FAISS scored_chunks
 
                 else:
                     # Fallback to database search with enhanced scoring
@@ -175,12 +254,8 @@ class EnhancedRAGFlowRetrieval:
                     
                     logger.info(f"📊 Found {len(all_embeddings)} embeddings for database search")
                     
-                    # Preprocess query ONCE for all embeddings (optimization!)
-                    from config.retrieval import get_retrieval_config
-                    from .retrieval_helper import preprocess_query_for_scoring
-                    config = get_retrieval_config()
-                    preprocessed_query = preprocess_query_for_scoring(query_tokens, config)
-                    logger.debug(f"🚀 Query preprocessed for DB path: {len(preprocessed_query['valid_tokens'])} valid tokens")
+                    # RAGFlow-style: No query preprocessing needed for simplified scoring
+                    logger.debug("🚀 Using simplified RAGFlow-style scoring (no preprocessing needed)")
                     
                     scored_chunks = []
                     
@@ -208,15 +283,14 @@ class EnhancedRAGFlowRetrieval:
                                 logger.warning(f"Chunk not found in batch: {emb.owner_id}")
                                 continue
                             
-                            # Calculate advanced similarities (optimized with preprocessed query)
+                            # Calculate advanced similarities (RAGFlow-style simple approach)
                             similarities = calculate_advanced_similarity(
                                 query_tokens,  # 🎯 Use enhanced query tokens, not keywords
                                 chunk.content,
                                 query_vector,
                                 emb.vector,
                                 {'chunk_index': chunk.chunk_index, 'owner_type': emb.owner_type.value},
-                                vector_similarity=None,
-                                preprocessed_query=preprocessed_query  # ← OPTIMIZATION: Use preprocessed query!
+                                vector_similarity=None
                             )
                             
                             final_score = calculate_final_score(similarities, {
@@ -246,7 +320,39 @@ class EnhancedRAGFlowRetrieval:
                             continue
                 
                 
-                # Step 5: Simple top_k selection (core RAG behavior)
+                # Step 5: Reranking (DB fallback path - FAISS path already handled above)
+                if req.rerank_id and scored_chunks and not index_ready:
+                    logger.info(f"🔄 Applying reranking with model: {req.rerank_id} (DB fallback path)")
+                    
+                    # Stage 1: Get optimal candidates for reranking (don't request more than available)
+                    optimal_rerank_count = min(req.rerank_top_k, len(scored_chunks))
+                    if optimal_rerank_count != req.rerank_top_k:
+                        logger.info(f"🎯 Optimized DB rerank candidates: {req.rerank_top_k} → {optimal_rerank_count} (available: {len(scored_chunks)})")
+                    rerank_candidates = sorted(scored_chunks, key=lambda x: x['final_score'], reverse=True)[:optimal_rerank_count]
+                    
+                    # Stage 2: Rerank with appropriate model
+                    try:
+                        reranker = get_reranker(req)
+                        if reranker is None:
+                            logger.warning(f"⚠️ Failed to initialize reranker: {req.rerank_id}")
+                        else:
+                            reranked_chunks = reranker.rerank_with_chunk_data(enhanced_query, rerank_candidates)
+                            
+                            # Update scores with rerank scores
+                            for chunk, rerank_score in reranked_chunks:
+                                chunk['rerank_score'] = rerank_score
+                                chunk['final_score'] = rerank_score
+                            
+                            # Replace scored_chunks with reranked results
+                            scored_chunks = [chunk for chunk, _ in reranked_chunks]
+                        
+                        logger.info(f"🎯 Reranked {len(rerank_candidates)} DB candidates")
+                        
+                    except Exception as e:
+                        logger.warning(f"⚠️ Reranking failed, falling back to vector scoring: {e}")
+                        # Keep original scored_chunks
+                
+                # Final selection: top_k from (potentially reranked) scored_chunks
                 sorted_chunks = sorted(scored_chunks, key=lambda x: x['final_score'], reverse=True)
                 selected_chunks = sorted_chunks[:req.top_k]
                 
@@ -281,7 +387,9 @@ class EnhancedRAGFlowRetrieval:
                             # 'enhanced_query': enhanced_query,    
                             # 'keywords': keywords,                
                             'text_similarity': chunk['similarities']['text_similarity'],
-                            'vector_similarity': chunk['similarities']['vector_similarity']
+                            'vector_similarity': chunk['similarities']['vector_similarity'],
+                            # Add rerank_score if present
+                            **({'rerank_score': chunk['rerank_score']} if 'rerank_score' in chunk else {})
                             # 'keyword_bonus': chunk['similarities']['keyword_bonus'],    
                             # 'position_bonus': chunk['similarities']['position_bonus'],     
                             # 'length_bonus': chunk['similarities']['length_bonus']       
@@ -301,7 +409,7 @@ class EnhancedRAGFlowRetrieval:
                     query_tokens=len(query_tokens),
                     total_candidates=len(scored_chunks),
                     filtered_candidates=len(selected_chunks),
-                    search_method="enhanced_ragflow_hybrid_simple",
+                    search_method=f"enhanced_ragflow_hybrid_simple{self._get_rerank_suffix(req)}",
                     embedding_model=self.embed_config.embed_model,
                     cache_hit_rate=cache_stats.get("embed_cache", {}).get("hit_rate", "0%"),
                     cache_size=cache_stats.get("embed_cache", {}).get("size", 0)

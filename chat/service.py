@@ -92,7 +92,7 @@ class ChatService:
                     query=request.query,
                     tenant_id=assistant.tenant_id,
                     kb_id=assistant.kb_id,
-                    top_k=assistant.model_settings.get("top_k", 5) if assistant.model_settings else 5
+                    top_k=assistant.model_settings.get("top_k", 8) if assistant.model_settings else 8
                 )
                 
                 retrieval_result = await ragflow_retrieve(retrieval_request)

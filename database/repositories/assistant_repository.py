@@ -37,7 +37,7 @@ class AssistantRepository(BaseRepository[AssistantORM]):
                 "model": "gemini-1.5-flash",
                 "temperature": 0.7,
                 "max_tokens": 2000,
-                "top_k": 5,
+                "top_k": 8,
                 "use_rerank": True
             }
         

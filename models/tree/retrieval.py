@@ -10,13 +10,17 @@ class RetrievalRequest(BaseModel):
     kb_id: str = Field(...)
     
     # Common parameters
-    top_k: int = Field(5, ge=1, le=50)
+    top_k: int = Field(8, ge=1, le=50)
     token_budget: Optional[int] = Field(4000, ge=100)
     min_similarity_threshold: float = Field(0.0, ge=0.0, le=1.0)
     
     # RAGFlow-style hybrid search parameters
     candidate_multiplier: int = Field(20, ge=1, le=100)
     vector_similarity_weight: float = Field(0.7, ge=0.0, le=1.0)
+    
+    # Reranking parameters (optional)
+    rerank_id: Optional[str] = Field(None)
+    rerank_top_k: int = Field(38, ge=10, le=50)
 
 class RetrievedNode(BaseModel):
     """A retrieved node with similarity score"""

@@ -10,8 +10,7 @@ from .retrieval_helper import (
     calculate_advanced_similarity,
     calculate_final_score,
     build_vector_index,
-    convert_vector_results_to_chunks,
-    preprocess_query_for_scoring
+    convert_vector_results_to_chunks
 )
 
 # Supporting services
@@ -33,7 +32,6 @@ __all__ = [
     "calculate_final_score",
     "build_vector_index",
     "convert_vector_results_to_chunks",
-    "preprocess_query_for_scoring",
     
     # Query enhancement
     "universal_query_enhancer",

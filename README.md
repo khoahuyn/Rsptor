@@ -44,7 +44,7 @@
 flowchart TD
     subgraph "LangFlow Integration"
         A[Chat Input] --> B[Planning Agent]
-        B --> C[Research Executor]
+        B --> C[Research Executor]  
         C --> D[Writer Agent]
         D --> E[Chat Output]
     end
@@ -56,33 +56,48 @@ flowchart TD
     end
     
     subgraph "Deep Research Core"
-        J[Query Planning] --> K[3 Parallel MCP Calls]
-        K --> L[Quality Assessment]
-        L --> M[Research Synthesis]
+        J[RAPTOR Tree Retrieval] --> K[Jina Reranking]
+        K --> L[3 Parallel MCP Calls]
+        L --> M[Quality Assessment]
     end
     
-    subgraph "LLM Strategy" 
+    subgraph "Dual LLM Strategy"
         N[DeepSeek-R1 Primary] --> O{Success?}
-        O -->|Yes| P[Extract Thinking]
+        O -->|Yes| P[Smart Citations]
         O -->|No| Q[Gemini Fallback]
         Q --> P
     end
     
+    subgraph "Embeddings & Processing"
+        R[VoyageAI Multi-Key]
+        S[Document Chunking]
+        T[RAPTOR Tree Building]
+    end
+    
     subgraph "Storage"
-        R[(Supabase DB)]
-        S[(Vector Index)]
-        T[(RAPTOR Trees)]
+        U[(Supabase DB)]
+        V[(Vector Index)]
+        W[(RAPTOR Trees)]
     end
     
     C --> F
     I --> J
+    J --> R
+    K --> N
     M --> N
     P --> D
     
+    S --> T
+    T --> W
+    R --> V
+    J --> U
+    
     style A fill:#e1f5fe
-    style C fill:#fff3e0
+    style C fill:#fff3e0  
     style F fill:#f3e5f5
     style N fill:#e8f5e8
+    style K fill:#ffeb3b
+    style R fill:#f1f8e9
 ```
 
 ### Tech Stack
@@ -91,6 +106,7 @@ flowchart TD
 - **MCP Server**: Official MCP library with SSE transport
 - **Database**: Supabase (PostgreSQL + pgvector) 
 - **Embeddings**: VoyageAI (multi-key) or BGE-M3 (local)
+- **Reranking**: Jina AI (jina-reranker-v2-base-multilingual)
 - **Primary LLM**: DeepSeek-R1 via FPT Cloud API 
 - **Fallback LLM**: Google Gemini 1.5 Flash
 - **Clustering**: Gaussian Mixture Models + BIC optimization
@@ -216,6 +232,10 @@ EMBED_API_KEY=pa-key1,pa-key2,pa-key3,pa-key4
 EMBED_MODEL=voyage-context-3
 EMBED_VECTOR_DIM=1024
 
+# === RERANKING CONFIGURATION ===
+# Jina Reranker (only supported reranker)
+JINA_API_KEY=your_jina_api_key
+
 # === DATABASE CONFIGURATION ===
 DATABASE_URL=postgresql+psycopg://postgres.PROJECT_ID:PASSWORD@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require
 DB_ENABLE_SSL=true
@@ -227,9 +247,11 @@ RAPTOR_MAX_CLUSTERS=64
 RAPTOR_THRESHOLD=0.1
 RAPTOR_RANDOM_SEED=42
 
-# Chunking
+# Chunking (RAGFlow-optimized for efficiency)
 CHUNK_SIZE=512
-CHUNK_OVERLAP_PERCENT=10
+CHUNK_DELIMITER="\n。；！？.!?\n\n"
+CHUNK_OVERLAP_PERCENT=15
+MIN_CHUNK_TOKENS=150
 
 # API settings
 API_HOST=0.0.0.0
@@ -319,6 +341,20 @@ curl -X POST "http://127.0.0.1:3333/api/v1/mcp/rpc" \
   }'
 ```
 
+### RAPTOR Retrieval with Jina Reranking
+
+```bash
+curl -X POST "http://127.0.0.1:8081/v1/ragflow/ragflow_retrieve" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "T1 championship victories",
+    "tenant_id": "test_tenant", 
+    "kb_id": "test_tenant::kb::liên_minh_huyền_thoại",
+    "top_k": 8,
+    "rerank_id": "jina"
+  }'
+```
+
 ### Upload Documents with RAPTOR Processing
 
 ```bash
@@ -341,6 +377,16 @@ curl -X POST "http://127.0.0.1:8081/v1/ragflow/process" \
 - Multi-level document summarization  
 - Vector-based similarity search
 - Configurable clustering parameters
+
+### 🔧 **Reranking Features**
+
+**Jina Reranker:**
+- Model: `jina-reranker-v2-base-multilingual` (hardcoded)
+- Fast API-based inference
+- Request: `rerank_id: "jina"`
+- Smart truncation with sentence boundary awareness
+- Automatic retry with exponential backoff
+- Rate limiting and timeout handling
 
 ### 🏆 MCP Integration Features
 
@@ -442,7 +488,7 @@ pm2 start run_mcp_server.py --name "raptor-mcp" -- --mode http --port 3333
 - [ ] Configure CORS for production domains
 - [ ] Set up proper database user permissions
 - [ ] Regular backup of database and files
-- [ ] Rotate API keys regularly (FPT Cloud, Gemini, VoyageAI)
+- [ ] Rotate API keys regularly (FPT Cloud, Gemini, VoyageAI, Jina)
 
 ### Production Recommendations
 - **🏆 Embedding**: Use VoyageAI multi-key for production

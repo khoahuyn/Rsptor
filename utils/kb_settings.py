@@ -29,5 +29,5 @@ def get_default_kb_settings() -> Dict[str, Any]:
         "similarity_threshold": raptor_config.similarity_threshold,
         
         # Retrieval settings (defaults)
-        "top_k": 5
+        "top_k": 8
     }

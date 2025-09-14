@@ -149,7 +149,7 @@ class ChatSessionRepository(BaseRepository[ChatSessionORM]):
                 "model": "gpt-4",
                 "temperature": 0.7,
                 "max_tokens": 2000,
-                "top_k": 5
+                "top_k": 8
             }
         }
         

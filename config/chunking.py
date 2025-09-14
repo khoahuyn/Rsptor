@@ -8,10 +8,10 @@ class ChunkingSettings(BaseSettings):
     
     # Basic chunk settings
     chunk_size: int = Field(512, env="CHUNK_SIZE")
-    chunk_delimiter: str = Field("\n\n", env="CHUNK_DELIMITER") 
-    chunk_overlap_percent: int = Field(10, env="CHUNK_OVERLAP_PERCENT")
+    chunk_delimiter: str = Field("\n。；！？.!?\n\n", env="CHUNK_DELIMITER")  # RAGFlow-inspired smart delimiters
+    chunk_overlap_percent: int = Field(15, env="CHUNK_OVERLAP_PERCENT")  # Increased for better context preservation
     hierarchical_pattern_set: int = Field(2, env="HIERARCHICAL_PATTERN_SET")
-    min_chunk_tokens: int = Field(50, env="MIN_CHUNK_TOKENS")
+    min_chunk_tokens: int = Field(150, env="MIN_CHUNK_TOKENS")  # Increased to avoid tiny chunks
     
     
     # Performance optimization flags

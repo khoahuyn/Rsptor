@@ -12,7 +12,6 @@ dependencies = [
     "fastapi>=0.116.1",
     "google-generativeai>=0.8.5",
     "numpy==1.26.4",
-    "openai>=1.99.9",
     "pgvector>=0.3.8",
     "psycopg[binary]>=3.2.3",
     "pydantic>=2.11.7",
@@ -27,7 +26,5 @@ dependencies = [
     "umap-learn>=0.5.9.post2",
     "uvicorn>=0.35.0",
     "voyageai>=0.3.4",
-    "mcp[cli]>=1.0.0",
-    "fastmcp>=2.12.2",
-    "aiohttp>=3.8.0",
+    "mcp>=1.0.0"
 ]

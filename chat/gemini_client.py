@@ -44,7 +44,6 @@ class GeminiChat(BaseChatModel):
     
     def _convert_messages_to_gemini_format(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
-        Convert OpenAI-style messages to Gemini format
         Gemini uses 'user' and 'model' roles instead of 'user' and 'assistant'
         """
         gemini_messages = []
